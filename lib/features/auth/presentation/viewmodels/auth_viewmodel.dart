@@ -1,0 +1,156 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/logging/app_logger.dart';
+import '../../domain/usecases/get_current_user_usecase.dart';
+import '../../domain/usecases/login_usecase.dart';
+import '../../domain/usecases/logout_usecase.dart';
+import '../../domain/usecases/register_usecase.dart';
+import 'auth_providers.dart';
+import 'auth_state.dart';
+
+/// ViewModel untuk Authentication Toko Online (MVVM pattern dengan Riverpod Notifier)
+class AuthViewModel extends Notifier<AuthState> {
+  late final LoginUseCase _loginUseCase;
+  late final RegisterUseCase _registerUseCase;
+  late final LogoutUseCase _logoutUseCase;
+  late final GetCurrentUserUseCase _getCurrentUserUseCase;
+
+  @override
+  AuthState build() {
+    _loginUseCase = ref.watch(authLoginUseCaseProvider);
+    _registerUseCase = ref.watch(authRegisterUseCaseProvider);
+    _logoutUseCase = ref.watch(authLogoutUseCaseProvider);
+    _getCurrentUserUseCase = ref.watch(authGetCurrentUserUseCaseProvider);
+
+    // Cek status sesi login saat inisialisasi aplikasi
+    Future.microtask(() => checkAuthStatus());
+
+    return const AuthState(
+      status: AuthStatus.initial,
+      logs: ['Inisialisasi sistem autentikasi toko online...'],
+    );
+  }
+
+  /// Cek apakah pengguna sudah memiliki token aktif
+  Future<void> checkAuthStatus() async {
+    state = state.addLog('Memeriksa sesi login tersimpan di secure storage...');
+
+    final result = await _getCurrentUserUseCase();
+    result.fold(
+      onSuccess: (user) {
+        if (user != null) {
+          state = state
+              .addLog('Sesi ditemukan. Selamat datang kembali, ${user.username}!')
+              .copyWith(
+                status: AuthStatus.authenticated,
+                user: user,
+              );
+        } else {
+          state = state
+              .addLog('Belum ada sesi aktif. Silakan masuk ke akun Anda.')
+              .copyWith(status: AuthStatus.unauthenticated);
+        }
+      },
+      onFailure: (failure) {
+        state = state
+            .addLog('Pemeriksaan token gagal: ${failure.message}')
+            .copyWith(status: AuthStatus.unauthenticated);
+      },
+    );
+  }
+
+  /// Eksekusi Login Toko Online
+  Future<bool> login({
+    required String email,
+    required String password,
+  }) async {
+    state = state
+        .copyWith(status: AuthStatus.loading, clearError: true)
+        .addLog('Mengirim permintaan login ke server...');
+
+    AppLogger.i('AuthViewModel: Memproses login untuk $email');
+
+    final result = await _loginUseCase(email: email, password: password);
+
+    return result.fold(
+      onSuccess: (user) {
+        state = state
+            .addLog('Login berhasil. Token disimpan secara aman.')
+            .copyWith(
+              status: AuthStatus.authenticated,
+              user: user,
+              clearError: true,
+            );
+        return true;
+      },
+      onFailure: (failure) {
+        AppLogger.w('AuthViewModel login failure: ${failure.message}');
+        state = state
+            .addLog('Login gagal: ${failure.message}')
+            .copyWith(
+              status: AuthStatus.error,
+              errorMessage: failure.message,
+            );
+        return false;
+      },
+    );
+  }
+
+  /// Eksekusi Register Akun Baru
+  Future<bool> register({
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    state = state
+        .copyWith(status: AuthStatus.loading, clearError: true)
+        .addLog('Membuat akun pembeli baru...');
+
+    AppLogger.i('AuthViewModel: Mendaftarkan akun $username ($email)');
+
+    final result = await _registerUseCase(
+      username: username,
+      email: email,
+      password: password,
+    );
+
+    return result.fold(
+      onSuccess: (user) {
+        state = state
+            .addLog('Akun berhasil dibuat. Selamat datang di Heritage Batik!')
+            .copyWith(
+              status: AuthStatus.authenticated,
+              user: user,
+              clearError: true,
+            );
+        return true;
+      },
+      onFailure: (failure) {
+        AppLogger.w('AuthViewModel register failure: ${failure.message}');
+        state = state
+            .addLog('Pendaftaran gagal: ${failure.message}')
+            .copyWith(
+              status: AuthStatus.error,
+              errorMessage: failure.message,
+            );
+        return false;
+      },
+    );
+  }
+
+  /// Eksekusi Logout
+  Future<void> logout() async {
+    state = state.addLog('Menghapus token sesi dari penyimpanan...');
+    await _logoutUseCase();
+    state = state
+        .addLog('Logout berhasil. Sesi telah berakhir.')
+        .copyWith(
+          status: AuthStatus.unauthenticated,
+          user: null,
+          clearError: true,
+        );
+  }
+
+  void clearError() {
+    state = state.copyWith(clearError: true);
+  }
+}
