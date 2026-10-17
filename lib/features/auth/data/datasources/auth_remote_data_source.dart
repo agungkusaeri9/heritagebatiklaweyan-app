@@ -32,32 +32,73 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required this.dioClient,
   });
 
+  /// Helper untuk mencoba request POST ke beberapa kemungkinan endpoint (misal /auth/login, /login)
+  Future<Response> _postWithFallback(
+    List<String> endpoints,
+    Map<String, dynamic> data,
+  ) async {
+    DioException? lastError;
+
+    for (final endpoint in endpoints) {
+      try {
+        AppLogger.d('AuthRemoteDataSource: Trying POST $endpoint');
+        final response = await dio.post(endpoint, data: data);
+        if (response.statusCode != null &&
+            response.statusCode! >= 200 &&
+            response.statusCode! < 300) {
+          return response;
+        }
+      } on DioException catch (e) {
+        lastError = e;
+        // Jika 404 (Route not found), lanjut coba endpoint kandidat berikutnya
+        if (e.response?.statusCode == 404) {
+          AppLogger.w('Endpoint $endpoint returned 404 Not Found, trying next candidate...');
+          continue;
+        }
+        // Jika error validasi atau kredensial (401, 422, 500), lempar error asli dari backend
+        rethrow;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+    throw const ApiException(message: 'Semua kandidat endpoint backend tidak merespon.');
+  }
+
   @override
   Future<AuthResponseModel> login({
     required String email,
     required String password,
   }) async {
     try {
-      AppLogger.d('AuthRemoteDataSource: Invoking login endpoint for $email');
+      AppLogger.i('AuthRemoteDataSource: Melakukan login backend untuk email: $email');
 
-      final response = await dio.post(
-        ApiConstants.login,
-        data: {
-          'email': email,
-          'password': password,
-        },
-      );
+      // Kandidat endpoint login backend Laravel
+      final candidateEndpoints = [
+        ApiConstants.login, // /auth/login (relatif ke /api/v1)
+        '/login',           // /login (relatif ke /api/v1)
+        '${ApiConstants.apiBaseUrl}/login',      // /api/login (tanpa v1)
+        '${ApiConstants.apiBaseUrl}/auth/login', // /api/auth/login (tanpa v1)
+      ];
 
-      return AuthResponseModel.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (dioErr) {
-      // Jika server contoh tidak aktif (offline / dev simulator mode)
-      if (_isNetworkOrMockable(dioErr)) {
-        AppLogger.w('Backend host unreachable. Simulating offline cyber authentication for demonstration.');
-        return _mockLoginSuccess(email: email);
+      final payload = {
+        'email': email,
+        'password': password,
+      };
+
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map<String, dynamic>) {
+        return AuthResponseModel.fromJson(response.data as Map<String, dynamic>);
       }
+
+      throw const ApiException(message: 'Format respon login dari backend tidak valid');
+    } on DioException catch (dioErr) {
       throw dioClient.handleDioError(dioErr);
     } catch (e, stack) {
       AppLogger.e('Unexpected error during login', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
       throw ApiException(message: 'Gagal melakukan login: $e');
     }
   }
@@ -69,26 +110,47 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
   }) async {
     try {
-      AppLogger.d('AuthRemoteDataSource: Invoking register endpoint for $username ($email)');
+      AppLogger.i('AuthRemoteDataSource: Melakukan registrasi backend untuk $username ($email)');
 
-      final response = await dio.post(
-        ApiConstants.register,
-        data: {
-          'username': username,
-          'email': email,
-          'password': password,
-        },
-      );
+      // Kandidat endpoint register backend Laravel
+      final candidateEndpoints = [
+        ApiConstants.register, // /auth/register (relatif ke /api/v1)
+        '/register',           // /register (relatif ke /api/v1)
+        '${ApiConstants.apiBaseUrl}/register',      // /api/register (tanpa v1)
+        '${ApiConstants.apiBaseUrl}/auth/register', // /api/auth/register (tanpa v1)
+      ];
 
-      return AuthResponseModel.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (dioErr) {
-      if (_isNetworkOrMockable(dioErr)) {
-        AppLogger.w('Backend host unreachable. Simulating offline cyber registration for demonstration.');
-        return _mockRegisterSuccess(username: username, email: email);
+      // Sanitasi username untuk memenuhi aturan Laravel alpha_dash (hanya huruf, angka, dash, dan underscore tanpa spasi)
+      String cleanUsername = username
+          .trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'\s+'), '_')
+          .replaceAll(RegExp(r'[^a-z0-9_\-]'), '');
+      if (cleanUsername.isEmpty) {
+        cleanUsername = email.split('@').first.replaceAll(RegExp(r'[^a-z0-9_\-]'), '');
       }
+
+      // Kirim name, username, email, password, dan password_confirmation untuk kompatibilitas penuh dengan Laravel controller
+      final payload = {
+        'name': username.trim(),
+        'username': cleanUsername,
+        'email': email.trim(),
+        'password': password,
+        'password_confirmation': password,
+      };
+
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map<String, dynamic>) {
+        return AuthResponseModel.fromJson(response.data as Map<String, dynamic>);
+      }
+
+      throw const ApiException(message: 'Format respon registrasi dari backend tidak valid');
+    } on DioException catch (dioErr) {
       throw dioClient.handleDioError(dioErr);
     } catch (e, stack) {
       AppLogger.e('Unexpected error during registration', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
       throw ApiException(message: 'Gagal melakukan registrasi: $e');
     }
   }
@@ -98,9 +160,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       await dio.post(ApiConstants.logout);
     } on DioException catch (dioErr) {
-      if (_isNetworkOrMockable(dioErr)) {
-        AppLogger.d('Simulated offline logout completed.');
-        return;
+      if (dioErr.response?.statusCode == 404) {
+        try {
+          await dio.post('/logout');
+          return;
+        } catch (_) {}
       }
       throw dioClient.handleDioError(dioErr);
     } catch (e, stack) {
@@ -111,59 +175,30 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> getProfile() async {
     try {
-      final response = await dio.get(ApiConstants.profile);
-      return UserModel.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (dioErr) {
-      if (_isNetworkOrMockable(dioErr)) {
-        return UserModel(
-          id: 'usr_cyber_0x99A',
-          email: 'customer@heritagebatik.com',
-          username: 'BatikLover',
-          role: 'customer',
-          createdAt: DateTime.now().subtract(const Duration(days: 30)),
-        );
+      Response response;
+      try {
+        response = await dio.get(ApiConstants.profile);
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          response = await dio.get('/me');
+        } else {
+          rethrow;
+        }
       }
+
+      final responseData = response.data;
+      if (responseData is Map<String, dynamic>) {
+        final userRaw = responseData['data'] ?? responseData['user'] ?? responseData;
+        if (userRaw is Map<String, dynamic>) {
+          return UserModel.fromJson(userRaw);
+        }
+      }
+      throw const ApiException(message: 'Format profil pengguna tidak sesuai');
+    } on DioException catch (dioErr) {
       throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error getting profile', error: e, stackTrace: stack);
+      throw ApiException(message: 'Gagal mengambil profil: $e');
     }
-  }
-
-  bool _isNetworkOrMockable(DioException err) {
-    return err.type == DioExceptionType.connectionError ||
-        err.type == DioExceptionType.connectionTimeout ||
-        err.message?.contains('heritagebatiklaweyan.com') == true ||
-        err.message?.contains('Failed host lookup') == true;
-  }
-
-  AuthResponseModel _mockLoginSuccess({required String email}) {
-    final username = email.split('@').first;
-    return AuthResponseModel(
-      accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token.${DateTime.now().millisecondsSinceEpoch}',
-      refreshToken: 'rf_${DateTime.now().millisecondsSinceEpoch}',
-      tokenType: 'Bearer',
-      expiresIn: 86400,
-      user: UserModel(
-        id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        email: email,
-        username: username,
-        role: 'customer',
-        createdAt: DateTime.now(),
-      ),
-    );
-  }
-
-  AuthResponseModel _mockRegisterSuccess({required String username, required String email}) {
-    return AuthResponseModel(
-      accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token.${DateTime.now().millisecondsSinceEpoch}',
-      refreshToken: 'rf_${DateTime.now().millisecondsSinceEpoch}',
-      tokenType: 'Bearer',
-      expiresIn: 86400,
-      user: UserModel(
-        id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        email: email,
-        username: username,
-        role: 'customer',
-        createdAt: DateTime.now(),
-      ),
-    );
   }
 }

@@ -43,6 +43,16 @@ class AuthInterceptor extends QueuedInterceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
+    final path = err.requestOptions.path;
+    final isPublicEndpoint = path.contains(ApiConstants.login) ||
+        path.contains('/login') ||
+        path.contains(ApiConstants.register) ||
+        path.contains('/register');
+
+    if (isPublicEndpoint) {
+      return handler.next(err);
+    }
+
     // Tangani token expired (401 Unauthorized)
     if (err.response?.statusCode == 401) {
       AppLogger.w('AuthInterceptor: 401 Unauthorized detected. Attempting token refresh...');

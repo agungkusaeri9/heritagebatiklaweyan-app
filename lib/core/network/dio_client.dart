@@ -55,9 +55,54 @@ class DioClient {
         String errorMessage = 'Terjadi kesalahan pada respon server';
 
         if (responseData is Map<String, dynamic>) {
-          errorMessage = responseData['message'] ??
-              responseData['error'] ??
-              errorMessage;
+          final validationErrors = <String>[];
+
+          void parseErrors(dynamic errorsObj) {
+            if (errorsObj is Map) {
+              for (final entry in errorsObj.values) {
+                if (entry is List) {
+                  validationErrors.addAll(entry.map((e) => e.toString()));
+                } else if (entry is Map) {
+                  parseErrors(entry);
+                } else if (entry != null && entry.toString().trim().isNotEmpty) {
+                  validationErrors.add(entry.toString().trim());
+                }
+              }
+            } else if (errorsObj is List) {
+              for (final entry in errorsObj) {
+                if (entry != null && entry.toString().trim().isNotEmpty) {
+                  validationErrors.add(entry.toString().trim());
+                }
+              }
+            } else if (errorsObj is String && errorsObj.trim().isNotEmpty) {
+              validationErrors.add(errorsObj.trim());
+            }
+          }
+
+          // Prioritaskan ekstraksi dari 'errors' (Laravel standard error response)
+          if (responseData['errors'] != null) {
+            parseErrors(responseData['errors']);
+          } else if (responseData['data'] is Map<String, dynamic> &&
+              (responseData['data'] as Map<String, dynamic>)['errors'] != null) {
+            parseErrors((responseData['data'] as Map<String, dynamic>)['errors']);
+          }
+
+          if (validationErrors.isNotEmpty) {
+            errorMessage = validationErrors.join('\n');
+          } else {
+            // Jika tidak ada rincian errors, ambil pesan dari meta.message, message, atau error
+            if (responseData['meta'] is Map<String, dynamic> &&
+                responseData['meta']['message'] != null &&
+                responseData['meta']['message'].toString().trim().isNotEmpty) {
+              errorMessage = responseData['meta']['message'].toString().trim();
+            } else if (responseData['message'] != null &&
+                responseData['message'].toString().trim().isNotEmpty) {
+              errorMessage = responseData['message'].toString().trim();
+            } else if (responseData['error'] != null &&
+                responseData['error'].toString().trim().isNotEmpty) {
+              errorMessage = responseData['error'].toString().trim();
+            }
+          }
         }
 
         switch (statusCode) {
@@ -73,6 +118,12 @@ class DioClient {
             return ForbiddenException(message: errorMessage);
           case 404:
             return NotFoundException(message: errorMessage);
+          case 422:
+            return ApiException(
+              message: errorMessage,
+              statusCode: 422,
+              details: responseData,
+            );
           case 500:
           case 502:
           case 503:
@@ -86,7 +137,9 @@ class DioClient {
         }
 
       case DioExceptionType.connectionError:
-        return const NetworkException();
+        return const NetworkException(
+          message: 'Tidak dapat terhubung ke backend server (10.0.2.2:8000). Pastikan backend Laravel sedang berjalan (composer run dev).',
+        );
 
       case DioExceptionType.cancel:
         return const ApiException(message: 'Permintaan dibatalkan.');

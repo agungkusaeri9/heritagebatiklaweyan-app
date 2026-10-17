@@ -4,6 +4,54 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ---
 
+## [0.2.0] - 2026-10-18
+
+Pembaruan besar antarmuka pengguna (UI/UX) bertema ARBatika, penambahan alur Welcome & Onboarding interaktif, perombakan desain Sign In & Create Account dengan header melengkung modern, sistem checklist ketentuan password real-time, integrasi penuh backend Laravel Sanctum, dan modul pengaturan toko.
+
+### Fitur Baru
+
+#### 1. Halaman Welcome & Onboarding Interaktif (ARBatika)
+- **Welcome Screen**: Tampilan awal bertema ARBatika dengan hero image, headline *"ARBatika Makes You Feel Confident And Easy"*, tombol utama *"Let's Get Started"*, dan tautan navigasi langsung ke Sign In.
+- **Onboarding Flow (3 Layar)**:
+  - Mockup smartphone interaktif untuk pengalaman belanja fashion batik.
+  - Indikator halaman halus (*animated smooth page indicator*).
+  - Navigasi bawah konsisten dengan tombol *Back* (latar putih rounded) di kiri dan tombol *Next* (latar cokelat rounded) di kanan.
+  - Opsi *Skip* untuk langsung menuju halaman utama/login.
+- **Splash Screen Terintegrasi**: Sinkronisasi splash screen native Android 12+ (`values-v31`) dengan Flutter SplashView.
+
+#### 2. Desain Baru Sign In & Create Account
+- **Header Melengkung Modern**: Implementasi `CurvedHeaderClipper` dengan latar warna cokelat khas ARBatika (`#704F38`) dan tipografi putih bersih.
+- **Pill-shaped Input Field**: Kolom input email, nama, dan password dengan border rounded warna ungu/biru pastel (`#A5B4FC` & `#6366F1`).
+- **Show/Hide Password**: Ikon toggle visibilitas kata sandi yang responsif.
+- **Terms & Conditions**: Checkbox persetujuan syarat & ketentuan dengan tautan dialog interaktif.
+
+#### 3. Checklist Ketentuan Password Real-time
+- Indikator interaktif langsung di bawah input password pada halaman registrasi:
+  - Minimal 8 karakter.
+  - Mengandung huruf besar (A-Z) dan huruf kecil (a-z).
+  - Mengandung angka (0-9).
+  - Mengandung karakter khusus / simbol (!@#$%^&*...).
+- Indikator dinamis: Berubah seketika menjadi ikon ceklis hijau (`✔`) saat kriteria terpenuhi atau tanda silang merah (`✖`) saat kriteria belum lengkap.
+- Validasi form mencegah pengiriman data sebelum seluruh kriteria password terpenuhi.
+
+#### 4. Integrasi Backend Autentikasi (Laravel Sanctum)
+- Dukungan login dan register langsung ke backend server Laravel (`10.0.2.2:8000`).
+- Mekanisme fallback endpoint otomatis (`/auth/login`, `/login`, dan endpoint API standar).
+- Penanganan token otentikasi Sanctum (`plainTextToken`) dan ID pengguna tipe integer/string yang kompatibel.
+- **Sanitasi Username**: Konversi otomatis nama lengkap menjadi format `alpha_dash` untuk parameter `username` server guna menghindari penolakan validasi 422, sambil mempertahankan nama asli di field `name`.
+
+#### 5. Modul Pengaturan Toko, FAQ & Metode Pembayaran
+- Penambahan model data `StoreSettingModel`, `PaymentMethodModel`, dan `FaqModel`.
+- Integrasi `StoreRemoteDataSource` dan `StoreViewModel` berbasis Riverpod untuk mengelola informasi toko, FAQ, dan metode pembayaran.
+
+### Peningkatan & Perbaikan Sistem
+
+- **Ekstraksi Error Validasi Spesifik (422)**: `DioClient` kini memprioritaskan ekstraksi pesan dari struktur `responseData['errors']` sehingga pesan error spesifik dari Laravel (misal format username, email duplikat) langsung ditampilkan ke pengguna melalui SnackBar, bukan lagi sekadar pesan umum *"Validasi gagal."*.
+- **Perbaikan Navigasi GoRouter**: Memperbaiki masalah reset navigasi ke splash saat terjadi perubahan status autentikasi/error dengan memisahkan lifecycle notifier dari deklarasi router dan menerapkan route guards yang aman.
+- **Penyempurnaan Umpan Balik Error**: Menghapus kotak error merah di atas form dan menggantikannya dengan floating SnackBar yang bersih dan tidak merusak tata letak antarmuka.
+
+---
+
 ## [0.1.0] - 2026-10-17
 
 Rilis versi awal aplikasi toko online Heritage Batik Laweyan. Versi ini menyiapkan fondasi aplikasi, alur masuk dan pendaftaran akun, sistem keamanan data, serta kesiapan integrasi perangkat.

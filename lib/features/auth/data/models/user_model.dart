@@ -13,13 +13,15 @@ class UserModel extends UserEntity {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as String? ?? json['_id'] as String? ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
-      email: json['email'] as String? ?? '',
-      username: json['username'] as String? ?? '',
-      role: json['role'] as String? ?? 'operator',
-      avatarUrl: json['avatar_url'] as String?,
+      id: json['id'] != null
+          ? json['id'].toString()
+          : (json['_id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}'),
+      email: json['email']?.toString() ?? '',
+      username: json['username']?.toString() ?? json['name']?.toString() ?? '',
+      role: json['role']?.toString() ?? 'customer',
+      avatarUrl: json['avatar_url']?.toString() ?? json['profile_photo_url']?.toString(),
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }

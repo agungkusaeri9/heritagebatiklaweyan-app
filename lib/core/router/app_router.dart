@@ -7,23 +7,46 @@ import '../../features/auth/presentation/views/login_view.dart';
 import '../../features/auth/presentation/views/register_view.dart';
 import '../../features/dashboard/presentation/views/dashboard_view.dart';
 import '../../features/dashboard/presentation/views/permissions_view.dart';
+import '../../features/onboarding/presentation/views/onboarding_view.dart';
+import '../../features/onboarding/presentation/views/welcome_view.dart';
+import '../../features/splash/presentation/views/splash_view.dart';
+import '../storage/storage_providers.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
 
 /// Provider GoRouter terintegrasi dengan Riverpod Auth State Guard
 final routerProvider = Provider<GoRouter>((ref) {
-  // Notifier untuk memicu evaluasi rute saat status autentikasi berubah
-  final authNotifier = ValueNotifier<AuthState>(ref.watch(authViewModelProvider));
+  // Gunakan ref.read agar GoRouter tidak diinisialisasi ulang setiap ada perubahan auth state
+  final authNotifier = ValueNotifier<AuthState>(ref.read(authViewModelProvider));
 
   ref.listen<AuthState>(authViewModelProvider, (previous, next) {
     authNotifier.value = next;
   });
 
+  ref.onDispose(() {
+    authNotifier.dispose();
+  });
+
   return GoRouter(
     navigatorKey: routerKey,
-    initialLocation: '/login',
+    initialLocation: '/splash',
     refreshListenable: authNotifier,
     routes: [
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, state) => const SplashView(),
+      ),
+      GoRoute(
+        path: '/welcome',
+        name: 'welcome',
+        builder: (context, state) => const WelcomeView(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingView(),
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
@@ -47,17 +70,38 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final authState = ref.read(authViewModelProvider);
+      final storage = ref.read(localStorageServiceProvider);
       final isAuthenticated = authState.isAuthenticated;
+      final hasCompletedOnboarding = storage.hasCompletedOnboarding();
+
+      final isSplash = state.matchedLocation == '/splash';
+      final isWelcomeOrOnboarding = state.matchedLocation == '/welcome' ||
+          state.matchedLocation == '/onboarding';
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
 
-      // Jika belum login dan mencoba mengakses rute internal
-      if (!isAuthenticated && !isAuthRoute) {
-        return '/login';
+      // Biarkan splash screen selesai menampilkan animasi logo sebelum bernavigasi
+      if (isSplash) {
+        return null;
       }
 
-      // Jika sudah login dan masih di halaman login/register
-      if (isAuthenticated && isAuthRoute) {
+      // Jika belum login dan sedang berada di halaman login/register, TETAP DI HALAMAN INI!
+      if (!isAuthenticated && isAuthRoute) {
+        return null;
+      }
+
+      // Jika belum selesai onboarding dan belum login (serta bukan di halaman login/register)
+      if (!isAuthenticated && !hasCompletedOnboarding && !isWelcomeOrOnboarding && !isAuthRoute) {
+        return '/welcome';
+      }
+
+      // Jika belum login dan mencoba mengakses rute internal
+      if (!isAuthenticated && !isAuthRoute && !isWelcomeOrOnboarding) {
+        return '/welcome';
+      }
+
+      // Jika sudah login dan masih di halaman login/register/welcome/onboarding
+      if (isAuthenticated && (isAuthRoute || isWelcomeOrOnboarding)) {
         return '/dashboard';
       }
 

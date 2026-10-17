@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Brand Colors (Royal Navy & Batik Gold/Bronze)
-  static const Color primary = Color(0xFF1E293B); // Deep Navy Slate
-  static const Color primaryDark = Color(0xFF0F172A);
-  static const Color primaryLight = Color(0xFF334155);
+  // Primary Brand Colors (Batik Sogan Brown)
+  static const Color primary = Color(0xFF704F38);
+  static const Color primaryDark = Color(0xFF4A3423);
+  static const Color primaryLight = Color(0xFF8D674B);
 
   // Accent Colors (Batik Sogan Gold & Amber)
   static const Color accent = Color(0xFFD97706); // Warm Amber / Sogan Gold
@@ -15,7 +15,10 @@ class AppColors {
   static const Color accentDark = Color(0xFFB45309);
 
   // Backgrounds & Surface
-  static const Color background = Color(0xFFF8FAFC); // Clean crisp light background
+  static const Color bgPrimary = Color(0xFF704F38); // Background Primary (#704F38)
+  static const Color backgroundPrimary = Color(0xFF704F38);
+  static const Color background = Color(0xFF704F38); // Background Utama (#704F38)
+  static const Color backgroundLight = Color(0xFFF8FAFC);
   static const Color surface = Colors.white;
   static const Color card = Colors.white;
   static const Color surfaceVariant = Color(0xFFF1F5F9);

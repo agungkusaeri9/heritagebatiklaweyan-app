@@ -18,6 +18,8 @@ abstract class ILocalStorageService {
   String? getLastUsername();
   Future<void> setDarkMode(bool isDark);
   bool isDarkMode();
+  Future<void> setOnboardingCompleted(bool completed);
+  bool hasCompletedOnboarding();
 }
 
 class LocalStorageService implements ILocalStorageService {
@@ -79,5 +81,16 @@ class LocalStorageService implements ILocalStorageService {
   @override
   bool isDarkMode() {
     return getBool(StorageKeys.isDarkMode) ?? true; // Default dark theme for cyber theme
+  }
+
+  @override
+  Future<void> setOnboardingCompleted(bool completed) async {
+    await setBool(StorageKeys.hasCompletedOnboarding, completed);
+  }
+
+  @override
+  bool hasCompletedOnboarding() {
+    // Selalu false agar onboarding selalu ditampilkan terus
+    return false;
   }
 }
