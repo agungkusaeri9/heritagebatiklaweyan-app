@@ -43,11 +43,18 @@ class DioClient {
 
   /// Helper untuk menangani DioException ke Typed ApiException
   ApiException handleDioError(DioException error) {
+    final requestPath = error.requestOptions.path;
+    final fullUri = error.requestOptions.uri.toString();
+
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return const TimeoutException();
+        return TimeoutException(
+          message: 'Koneksi timeout ($requestPath). Server tidak merespon dalam batas waktu.',
+          details: error.message,
+          uri: fullUri,
+        );
 
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
@@ -137,8 +144,10 @@ class DioClient {
         }
 
       case DioExceptionType.connectionError:
-        return const NetworkException(
-          message: 'Tidak dapat terhubung ke backend server (10.0.2.2:8000). Pastikan backend Laravel sedang berjalan (composer run dev).',
+        return NetworkException(
+          message: 'Tidak dapat terhubung ke backend ($requestPath). Pastikan server aktif di ${ApiConstants.host}.',
+          details: error.message,
+          uri: fullUri,
         );
 
       case DioExceptionType.cancel:

@@ -3,21 +3,25 @@ class ApiException implements Exception {
   final String message;
   final int? statusCode;
   final dynamic details;
+  final String? uri;
 
   const ApiException({
     required this.message,
     this.statusCode,
     this.details,
+    this.uri,
   });
 
   @override
-  String toString() => 'ApiException(statusCode: $statusCode, message: $message)';
+  String toString() => message;
 }
 
 class NetworkException extends ApiException {
   const NetworkException({
     super.message = 'Koneksi internet bermasalah. Periksa jaringan Anda.',
     super.statusCode,
+    super.details,
+    super.uri,
   });
 }
 
@@ -52,6 +56,9 @@ class ServerException extends ApiException {
 class TimeoutException extends ApiException {
   const TimeoutException({
     super.message = 'Permintaan melebihi batas waktu (Timeout). Coba lagi beberapa saat lagi.',
+    super.statusCode,
+    super.details,
+    super.uri,
   });
 }
 

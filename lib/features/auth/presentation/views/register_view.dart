@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../viewmodels/auth_providers.dart';
 
 /// Custom Clipper untuk membuat lengkungan cembung elegan di bagian bawah Header
@@ -89,56 +90,55 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     required bool isMet,
     required String text,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isMet ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-              border: Border.all(
-                color: isMet ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
-                width: 1,
-              ),
-            ),
-            child: Center(
-              child: Icon(
-                isMet ? Icons.check_rounded : Icons.close_rounded,
-                size: 13,
-                color: isMet ? const Color(0xFF15803D) : const Color(0xFFDC2626),
-              ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 15,
+          height: 15,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isMet ? const Color(0xFFDCFCE7) : const Color(0xFFFFF1F2),
+            border: Border.all(
+              color: isMet ? const Color(0xFF86EFAC) : const Color(0xFFFECDD3),
+              width: 1,
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isMet ? FontWeight.w600 : FontWeight.w400,
-                color: isMet ? const Color(0xFF15803D) : const Color(0xFF64748B),
-              ),
+          child: Center(
+            child: Icon(
+              isMet ? Icons.check_rounded : Icons.close_rounded,
+              size: 9.5,
+              color: isMet ? const Color(0xFF15803D) : AppColors.errorText,
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isMet ? FontWeight.w600 : FontWeight.w400,
+              color: isMet ? const Color(0xFF15803D) : const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildPasswordRequirements() {
     return Container(
-      margin: const EdgeInsets.only(top: 10, bottom: 18),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: const EdgeInsets.only(top: 6, bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: const Color(0xFFE2E8F0),
-          width: 1.2,
+          width: 1.0,
         ),
       ),
       child: Column(
@@ -148,36 +148,55 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
             children: const [
               Icon(
                 Icons.shield_outlined,
-                size: 16,
-                color: Color(0xFF475569),
+                size: 13,
+                color: Color(0xFF64748B),
               ),
-              SizedBox(width: 6),
+              SizedBox(width: 5),
               Text(
                 'Ketentuan Password:',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B),
+                  color: Color(0xFF334155),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _buildRequirementItem(
-            isMet: _hasMinLength,
-            text: 'Minimal 8 karakter',
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _buildRequirementItem(
+                  isMet: _hasMinLength,
+                  text: 'Min. 8 karakter',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildRequirementItem(
+                  isMet: _hasUpperLower,
+                  text: 'Huruf besar & kecil',
+                ),
+              ),
+            ],
           ),
-          _buildRequirementItem(
-            isMet: _hasUpperLower,
-            text: 'Huruf besar (A-Z) dan huruf kecil (a-z)',
-          ),
-          _buildRequirementItem(
-            isMet: _hasNumber,
-            text: 'Mengandung angka (0-9)',
-          ),
-          _buildRequirementItem(
-            isMet: _hasSpecialChar,
-            text: 'Karakter khusus / simbol (!@#\$%^&*...)',
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: _buildRequirementItem(
+                  isMet: _hasNumber,
+                  text: 'Ada angka (0-9)',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildRequirementItem(
+                  isMet: _hasSpecialChar,
+                  text: 'Simbol khusus (!@#..)',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -233,22 +252,15 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     }
 
     if (!isFormValid || !_agreeWithTerms || !_isPasswordValid) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       if (!_isPasswordValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pastikan seluruh ketentuan password telah terpenuhi (semua ceklis hijau).'),
-            backgroundColor: Color(0xFFDC2626),
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppSnackBar.showError(
+          context,
+          'Pastikan seluruh ketentuan password telah terpenuhi (semua ceklis hijau).',
         );
       } else if (!_agreeWithTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please agree with the Term & Condition to continue'),
-            backgroundColor: Color(0xFFDC2626),
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppSnackBar.showError(
+          context,
+          'Please agree with the Term & Condition to continue',
         );
       }
       return;
@@ -264,24 +276,13 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     if (!mounted) return;
 
     if (success) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registration successful! Welcome to ARBatika.'),
-          backgroundColor: Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.showSuccess(context, 'Registration successful! Welcome to ARBatika.');
       context.go('/dashboard');
     } else {
       final authState = ref.read(authViewModelProvider);
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authState.errorMessage ?? 'Registration failed. Please try again.'),
-          backgroundColor: const Color(0xFFDC2626),
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppSnackBar.showError(
+        context,
+        authState.errorMessage ?? 'Registration failed. Please try again.',
       );
     }
   }
@@ -390,8 +391,8 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                   width: double.infinity,
                   color: AppColors.primary,
                   padding: EdgeInsets.only(
-                    top: topPadding + 28,
-                    bottom: 56,
+                    top: topPadding + 16,
+                    bottom: 38,
                     left: 24,
                     right: 24,
                   ),
@@ -403,23 +404,23 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                         'Create Account',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 26,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                           letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 320),
                         child: Text(
-                          'Fill your information below or register with your social account.',
+                          'Fill your information below to register your account.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w400,
                             color: Colors.white.withValues(alpha: 0.85),
-                            height: 1.4,
+                            height: 1.35,
                           ),
                         ),
                       ),
@@ -430,7 +431,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
 
               // 2. Registration Form Section
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -451,7 +452,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
 
                       // Email Input
                       _buildFormField(
@@ -470,7 +471,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
 
                       // Password Input
                       _buildFormField(
@@ -550,7 +551,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                         ],
                       ),
                       if (_termsError) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         const Padding(
                           padding: EdgeInsets.only(left: 34),
                           child: Text(
@@ -562,11 +563,11 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
 
                       // 5. Sign Up Button (Cokelat #704F38, Rounded Pill, Full Width)
                       SizedBox(
-                        height: 54,
+                        height: 50,
                         child: ElevatedButton(
                           onPressed: authState.isLoading ? null : _handleRegister,
                           style: ElevatedButton.styleFrom(
@@ -597,7 +598,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
                       // 6. Footer Section: Already have an account? Sign In
                       Center(
@@ -610,7 +611,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             }
                           },
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: const [
@@ -635,7 +636,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../data/datasources/store_remote_data_source.dart';
 import '../../data/models/faq_model.dart';
@@ -47,10 +48,12 @@ class StoreViewModel extends Notifier<StoreState> {
       );
     } catch (e, stack) {
       AppLogger.w('StoreViewModel: Gagal memuat data ke state', e, stack);
+      final errorMsg = e is ApiException ? e.message : e.toString();
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: errorMsg,
       );
     }
   }
 }
+

@@ -1,28 +1,45 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Konfigurasi URL dan Endpoint API aplikasi
 class ApiConstants {
   ApiConstants._();
 
-  // Port backend Laravel lokal
-  static const int port = 8000;
+  /// Default fallback URL murni IP & Port jika .env belum dimuat
+  static const String defaultUrl = 'http://192.168.100.17:8000';
 
-  static String get host {
-    if (kIsWeb) {
-      return 'http://127.0.0.1:$port';
+  /// Mendapatkan URL server murni (IP & Port) dari .env tanpa path
+  static String get serverUrl {
+    final envUrl = dotenv.env['API_BASE_URL'] ?? dotenv.env['BASE_URL'];
+    String raw = (envUrl != null && envUrl.trim().isNotEmpty)
+        ? envUrl.trim()
+        : const String.fromEnvironment('API_BASE_URL', defaultValue: defaultUrl);
+
+    // Hapus path /api atau /api/v1 dan trailing slash jika user tidak sengaja memasukkannya
+    if (raw.endsWith('/')) {
+      raw = raw.substring(0, raw.length - 1);
     }
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:$port';
+    if (raw.endsWith('/api/v1')) {
+      raw = raw.substring(0, raw.length - 7);
+    } else if (raw.endsWith('/api')) {
+      raw = raw.substring(0, raw.length - 4);
     }
-    return 'http://127.0.0.1:$port';
+
+    // Pastikan memiliki skema http:// atau https://
+    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+      raw = 'http://$raw';
+    }
+
+    return raw;
   }
 
-  /// Base URL dinamis (/api/v1)
-  static String get baseUrl => '$host/api/v1';
+  /// Host server murni (misal: http://192.168.100.17:8000)
+  static String get host => serverUrl;
+
+  /// Base URL endpoint API (/api/v1)
+  static String get baseUrl => '$serverUrl/api/v1';
 
   /// Base URL root API (/api)
-  static String get apiBaseUrl => '$host/api';
+  static String get apiBaseUrl => '$serverUrl/api';
 
   // Timeout konfigurasi
   static const Duration connectTimeout = Duration(seconds: 15);
@@ -35,6 +52,9 @@ class ApiConstants {
   static const String refreshToken = '/auth/refresh';
   static const String logout = '/auth/logout';
   static const String profile = '/auth/me';
+  static const String forgotPasswordSendOtp = '/auth/forgot-password/send-otp';
+  static const String forgotPasswordVerifyOtp = '/auth/forgot-password/verify-otp';
+  static const String forgotPasswordReset = '/auth/forgot-password/reset-password';
 
   // Store & Master Data Endpoints
   static const String settings = '/settings';

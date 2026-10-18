@@ -90,7 +90,6 @@ class LocalStorageService implements ILocalStorageService {
 
   @override
   bool hasCompletedOnboarding() {
-    // Selalu false agar onboarding selalu ditampilkan terus
-    return false;
+    return getBool(StorageKeys.hasCompletedOnboarding) ?? false;
   }
 }

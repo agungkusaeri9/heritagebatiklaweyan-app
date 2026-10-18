@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../viewmodels/auth_providers.dart';
 
 /// Custom Clipper untuk lengkungan cembung elegan di bagian bawah Header
@@ -55,59 +56,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
     super.dispose();
   }
 
-  void _showForgotPasswordDialog() {
-    final emailInput = _emailController.text.trim();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Reset Password',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        content: Text(
-          emailInput.isNotEmpty
-              ? 'A password reset instruction link will be sent to $emailInput.'
-              : 'Please enter your registered email address to receive password reset instructions.',
-          style: const TextStyle(
-            fontSize: 13.5,
-            color: Color(0xFF475569),
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF64748B),
-            ),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Password reset instructions sent if email exists.'),
-                  backgroundColor: AppColors.primary,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
-            child: const Text('Send Link'),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _handleLogin() async {
     // Sembunyikan keyboard saat submit
@@ -124,24 +72,13 @@ class _LoginViewState extends ConsumerState<LoginView> {
     if (!mounted) return;
 
     if (success) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful! Welcome back.'),
-          backgroundColor: Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.showSuccess(context, 'Login successful! Welcome back.');
       context.go('/dashboard');
     } else {
       final authState = ref.read(authViewModelProvider);
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authState.errorMessage ?? 'Login failed. Please check your credentials.'),
-          backgroundColor: const Color(0xFFDC2626),
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppSnackBar.showError(
+        context,
+        authState.errorMessage ?? 'Login failed. Please check your credentials.',
       );
     }
   }
@@ -250,8 +187,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
                   width: double.infinity,
                   color: AppColors.primary,
                   padding: EdgeInsets.only(
-                    top: topPadding + 28,
-                    bottom: 56,
+                    top: topPadding + 36,
+                    bottom: 115,
                     left: 24,
                     right: 24,
                   ),
@@ -343,7 +280,12 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
-                          onTap: _showForgotPasswordDialog,
+                          onTap: () {
+                            context.push(
+                              '/forgot-password',
+                              extra: _emailController.text.trim(),
+                            );
+                          },
                           child: const Padding(
                             padding: EdgeInsets.symmetric(vertical: 4),
                             child: Text(

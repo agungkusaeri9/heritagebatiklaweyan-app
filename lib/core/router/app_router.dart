@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/viewmodels/auth_providers.dart';
 import '../../features/auth/presentation/viewmodels/auth_state.dart';
+import '../../features/auth/presentation/views/forgot_password_view.dart';
 import '../../features/auth/presentation/views/login_view.dart';
 import '../../features/auth/presentation/views/register_view.dart';
+import '../../features/auth/presentation/views/reset_password_view.dart';
+import '../../features/auth/presentation/views/verify_otp_view.dart';
 import '../../features/dashboard/presentation/views/dashboard_view.dart';
 import '../../features/dashboard/presentation/views/permissions_view.dart';
 import '../../features/onboarding/presentation/views/onboarding_view.dart';
@@ -58,6 +61,42 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterView(),
       ),
       GoRoute(
+        path: '/forgot-password',
+        name: 'forgot-password',
+        builder: (context, state) => ForgotPasswordView(
+          initialEmail: state.extra as String?,
+        ),
+      ),
+      GoRoute(
+        path: '/verify-otp',
+        name: 'verify-otp',
+        builder: (context, state) {
+          final email = (state.extra as String?) ??
+              state.uri.queryParameters['email'] ??
+              '';
+          return VerifyOtpView(email: email);
+        },
+      ),
+      GoRoute(
+        path: '/reset-password',
+        name: 'reset-password',
+        builder: (context, state) {
+          final extraMap = state.extra is Map ? (state.extra as Map) : null;
+          final email = extraMap?['email']?.toString() ??
+              state.uri.queryParameters['email'] ??
+              '';
+          final resetToken = extraMap?['reset_token']?.toString() ??
+              extraMap?['resetToken']?.toString() ??
+              state.uri.queryParameters['token'] ??
+              state.uri.queryParameters['reset_token'] ??
+              '';
+          return ResetPasswordView(
+            email: email,
+            resetToken: resetToken,
+          );
+        },
+      ),
+      GoRoute(
         path: '/dashboard',
         name: 'dashboard',
         builder: (context, state) => const DashboardView(),
@@ -78,7 +117,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isWelcomeOrOnboarding = state.matchedLocation == '/welcome' ||
           state.matchedLocation == '/onboarding';
       final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/verify-otp' ||
+          state.matchedLocation == '/reset-password';
 
       // Biarkan splash screen selesai menampilkan animasi logo sebelum bernavigasi
       if (isSplash) {
@@ -90,6 +132,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      // Jika belum login tapi sudah pernah onboarding, jangan tampilkan welcome/onboarding lagi
+      if (!isAuthenticated && hasCompletedOnboarding && isWelcomeOrOnboarding) {
+        return '/login';
+      }
+
       // Jika belum selesai onboarding dan belum login (serta bukan di halaman login/register)
       if (!isAuthenticated && !hasCompletedOnboarding && !isWelcomeOrOnboarding && !isAuthRoute) {
         return '/welcome';
@@ -97,7 +144,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Jika belum login dan mencoba mengakses rute internal
       if (!isAuthenticated && !isAuthRoute && !isWelcomeOrOnboarding) {
-        return '/welcome';
+        return hasCompletedOnboarding ? '/login' : '/welcome';
       }
 
       // Jika sudah login dan masih di halaman login/register/welcome/onboarding

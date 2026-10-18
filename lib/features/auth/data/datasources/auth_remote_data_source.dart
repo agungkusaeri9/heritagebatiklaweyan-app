@@ -21,6 +21,20 @@ abstract class AuthRemoteDataSource {
   Future<void> logout();
 
   Future<UserModel> getProfile();
+
+  Future<String> sendPasswordResetOtp({required String email});
+
+  Future<String> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  });
+
+  Future<String> resetPassword({
+    required String email,
+    required String resetToken,
+    required String password,
+    required String passwordConfirmation,
+  });
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -199,6 +213,123 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e, stack) {
       AppLogger.e('Error getting profile', error: e, stackTrace: stack);
       throw ApiException(message: 'Gagal mengambil profil: $e');
+    }
+  }
+
+  @override
+  Future<String> sendPasswordResetOtp({required String email}) async {
+    try {
+      AppLogger.i('AuthRemoteDataSource: Mengirim OTP reset password ke $email');
+      final candidateEndpoints = [
+        ApiConstants.forgotPasswordSendOtp,
+        '/auth/forgot-password/send-otp',
+        '/forgot-password/send-otp',
+        '${ApiConstants.apiBaseUrl}/auth/forgot-password/send-otp',
+      ];
+
+      final payload = {'email': email.trim()};
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map<String, dynamic>) {
+        final data = response.data as Map<String, dynamic>;
+        return data['message']?.toString() ??
+            'Kode OTP pemulihan kata sandi telah dikirim ke email Anda.';
+      }
+      return 'Kode OTP pemulihan kata sandi telah dikirim ke email Anda.';
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error sending password reset OTP', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal mengirim kode OTP: $e');
+    }
+  }
+
+  @override
+  Future<String> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      AppLogger.i('AuthRemoteDataSource: Memverifikasi OTP untuk $email');
+      final candidateEndpoints = [
+        ApiConstants.forgotPasswordVerifyOtp,
+        '/auth/forgot-password/verify-otp',
+        '/forgot-password/verify-otp',
+        '${ApiConstants.apiBaseUrl}/auth/forgot-password/verify-otp',
+      ];
+
+      final payload = {
+        'email': email.trim(),
+        'otp': otp.trim(),
+      };
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map) {
+        final data = response.data as Map;
+        final innerData = data['data'];
+        if (innerData is Map) {
+          final token = innerData['reset_token'] ??
+              innerData['resetToken'] ??
+              innerData['token'];
+          if (token != null && token.toString().trim().isNotEmpty) {
+            return token.toString().trim();
+          }
+        }
+        final token = data['reset_token'] ??
+            data['resetToken'] ??
+            data['token'];
+        if (token != null && token.toString().trim().isNotEmpty) {
+          return token.toString().trim();
+        }
+      }
+      throw const ApiException(message: 'Respon token pemulihan dari server tidak valid.');
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error verifying OTP', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal memverifikasi OTP: $e');
+    }
+  }
+
+  @override
+  Future<String> resetPassword({
+    required String email,
+    required String resetToken,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      AppLogger.i('AuthRemoteDataSource: Mengatur ulang kata sandi untuk $email');
+      final candidateEndpoints = [
+        ApiConstants.forgotPasswordReset,
+        '/auth/forgot-password/reset-password',
+        '/auth/reset-password',
+        '/reset-password',
+        '${ApiConstants.apiBaseUrl}/auth/forgot-password/reset-password',
+      ];
+
+      final payload = {
+        'email': email.trim(),
+        'reset_token': resetToken.trim(),
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      };
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map<String, dynamic>) {
+        final data = response.data as Map<String, dynamic>;
+        return data['message']?.toString() ??
+            'Kata sandi berhasil diperbarui. Silakan masuk dengan kata sandi baru Anda.';
+      }
+      return 'Kata sandi berhasil diperbarui.';
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error resetting password', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal mereset kata sandi: $e');
     }
   }
 }

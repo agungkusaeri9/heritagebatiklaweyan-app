@@ -4,6 +4,66 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ---
 
+## [0.3.0] - 2026-10-18
+
+Pembaruan fitur baru sistem pemulihan akun: alur Lupa Kata Sandi (Forgot Password), verifikasi keamanan menggunakan 6 kotak kode OTP interaktif, serta pembuatan kata sandi baru yang terhubung langsung ke backend server.
+
+### Fitur Baru: Pemulihan Akun & Kata Sandi
+
+#### 1. Alur Lupa Kata Sandi (Forgot Password)
+- **Halaman Masukkan Email**: Tautan *"Forgot Password?"* di layar Sign In kini langsung mengarahkan ke halaman pemulihan akun dengan kolom isian email terdaftar dan tombol *"Kirim Kode OTP"* bertema cokelat ARBatika.
+- **Validasi Otomatis**: Memeriksa format email sebelum mengirim permintaan ke server toko online.
+
+#### 2. Input 6 Kotak Kode OTP Interaktif
+- **Desain 6 Kotak Khusus**: Tampilan verifikasi menggunakan **6 kotak angka individual terpisah** (bukan kolom teks biasa), dengan border melengkung halus dan efek sorotan saat aktif.
+- **Otomatis Pindah Kotak**: Kursor otomatis berpindah ke kotak berikutnya saat satu angka diketik.
+- **Mundur Otomatis saat Backspace**: Jika tombol hapus ditekan pada kotak kosong, kursor otomatis kembali ke kotak sebelumnya.
+- **Dukungan Tempel (Paste)**: Mendukung tempel langsung kode 6 digit dari SMS atau email, seluruh kotak langsung terisi otomatis.
+- **Hitung Mundur Kirim Ulang (60 Detik)**: Tombol kirim ulang kode OTP dilengkapi batas waktu tunggu 60 detik agar pengiriman tetap aman dan teratur.
+
+#### 3. Halaman Buat Kata Sandi Baru
+- **Integrasi Verifikasi Kode**: Setelah 6 kotak OTP diverifikasi oleh server, pengguna langsung diarahkan ke layar pembuatan kata sandi baru dengan membawa token keamanan.
+- **Checklist 4 Syarat Kata Sandi**: Dilengkapi panduan keamanan (minimal 8 karakter, huruf besar & kecil, angka, dan simbol khusus) yang otomatis berubah hijau ketika terpenuhi secara real-time.
+- **Kembali Otomatis ke Sign In**: Setelah kata sandi berhasil diperbarui, muncul notifikasi sukses dan pengguna langsung diarahkan kembali ke layar Sign In.
+
+---
+
+## [0.2.1] - 2026-10-18
+
+Pembaruan kenyamanan tampilan pada layar pembuka, halaman masuk, dan pendaftaran akun. Pesan peringatan kini hadir dengan warna yang lembut di mata, ketentuan kata sandi lebih ringkas, serta pengaturan koneksi ke server yang lebih stabil dan langsung.
+
+### Kenyamanan & Tampilan Baru
+
+#### 1. Layar Pembuka (Splash Screen) Lebih Bersih
+- **Indikator Menghubungkan Lebih Rapi**: Tulisan dan putaran animasi saat menghubungkan ke server kini berada di bagian bawah layar dengan ukuran lebih kecil, sehingga tidak menutupi keindahan logo utama.
+- **Pesan Gangguan yang Mudah Dipahami**: Jika koneksi internet terputus atau lambat, pesan ditampilkan dengan kalimat yang jelas dan bersahabat (misalnya: *"Koneksi melebihi batas waktu. Periksa jaringan Anda."*).
+- **Tampilan Bebas Gangguan**: Menghilangkan tombol coba lagi yang menutupi layar agar tampilan tetap bersih dan elegan.
+
+#### 2. Pesan Peringatan & Notifikasi Lebih Lembut di Mata
+- **Warna Merah Pastel (Soft)**: Mengubah warna kotak pesan kesalahan dari yang sebelumnya merah menyala terang menjadi merah pastel lembut yang nyaman dan tidak silau di mata.
+- **Teks Jelas & Mudah Dibaca**: Tulisan pada pesan tetap menggunakan warna marun pekat sehingga sangat mudah dibaca.
+- **Desain Kartu Melayang**: Notifikasi berhasil maupun gagal kini tampil rapi berbentuk kartu melengkung di bagian bawah layar.
+
+#### 3. Halaman Pendaftaran Akun (Daftar Akun) Lebih Ramping
+- **Ketentuan Kata Sandi Ringkas**: Daftar syarat kata sandi kini ditata rapi menyamping (2 kolom), sehingga tidak memakan banyak tempat di layar HP.
+- **Tombol Masuk Langsung Terlihat**: Bagian bawah halaman kini langsung memuat tautan *"Already have an account? Sign In"* tanpa harus digeser/scroll ke bawah.
+
+#### 4. Halaman Masuk (Login) Lebih Pas di Tengah Layar
+- **Header Cokelat Lebih Pas**: Bagian atas warna cokelat bertuliskan *"Sign In"* diperluas ke bawah secara proporsional.
+- **Posisi Form di Tengah**: Kolom email dan kata sandi kini tepat berada di tengah layar HP, membuat ruang kosong di bagian bawah layar berkurang dan tampilan terlihat seimbang.
+- **Jarak Kolom yang Rapi**: Jarak antara nama kolom, kotak isian, dan tombol tetap rapat dan nyaman digunakan.
+
+### Kestabilan Sistem & Koneksi
+
+#### 5. Pengenalan Pengguna Baru yang Lebih Cerdas
+- **Tidak Mengulang Layar Sambutan**: Pengguna yang sudah pernah melihat panduan awal (onboarding) atau sudah pernah masuk akun tidak akan ditampilkan layar sambutan lagi saat membuka aplikasi.
+
+#### 6. Koneksi Langsung ke Toko Online
+- **Selalu Mengambil Data Asli**: Aplikasi kini langsung terhubung ke server toko online untuk mengambil produk, kategori, dan pengaturan toko terbaru tanpa menggunakan data tiruan offline.
+- **Pengaturan Alamat Server Lebih Fleksibel**: Alamat koneksi server toko online kini dapat diatur dengan mudah melalui berkas konfigurasi (.env) agar stabil saat dicoba di berbagai jaringan.
+
+---
+
 ## [0.2.0] - 2026-10-18
 
 Pembaruan besar antarmuka pengguna (UI/UX) bertema ARBatika, penambahan alur Welcome & Onboarding interaktif, perombakan desain Sign In & Create Account dengan header melengkung modern, sistem checklist ketentuan password real-time, integrasi penuh backend Laravel Sanctum, dan modul pengaturan toko.

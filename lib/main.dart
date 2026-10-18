@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/constants/api_constants.dart';
 import 'core/logging/app_logger.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/storage_providers.dart';
@@ -11,6 +13,14 @@ Future<void> main() async {
 
   // Inisialisasi logging
   AppLogger.i('BOOT: Memulai aplikasi Heritage Batik Laweyan...');
+
+  // Inisialisasi Environment Variables (.env)
+  try {
+    await dotenv.load(fileName: '.env');
+    AppLogger.i('BOOT: Environment (.env) berhasil dimuat. Base URL: ${ApiConstants.baseUrl}');
+  } catch (e) {
+    AppLogger.w('BOOT: File .env tidak ditemukan atau gagal dimuat, menggunakan default fallback (${ApiConstants.baseUrl}): $e');
+  }
 
   // Inisialisasi SharedPreferences untuk penyimpanan non-sensitif
   final sharedPreferences = await SharedPreferences.getInstance();

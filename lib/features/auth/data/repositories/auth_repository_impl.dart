@@ -125,4 +125,65 @@ class AuthRepositoryImpl implements AuthRepository {
     final token = await localDataSource.getAccessToken();
     return token != null && token.isNotEmpty;
   }
+
+  @override
+  Future<Result<String>> sendPasswordResetOtp({required String email}) async {
+    try {
+      final message = await remoteDataSource.sendPasswordResetOtp(email: email);
+      return Success(message);
+    } on NetworkException catch (e) {
+      return ErrorResult(NetworkFailure(message: e.message));
+    } on ApiException catch (e) {
+      return ErrorResult(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } catch (e, stack) {
+      AppLogger.e('AuthRepository sendOtp error', error: e, stackTrace: stack);
+      return ErrorResult(UnknownFailure(message: 'Gagal mengirim OTP: $e'));
+    }
+  }
+
+  @override
+  Future<Result<String>> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final resetToken = await remoteDataSource.verifyPasswordResetOtp(
+        email: email,
+        otp: otp,
+      );
+      return Success(resetToken);
+    } on NetworkException catch (e) {
+      return ErrorResult(NetworkFailure(message: e.message));
+    } on ApiException catch (e) {
+      return ErrorResult(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } catch (e, stack) {
+      AppLogger.e('AuthRepository verifyOtp error', error: e, stackTrace: stack);
+      return ErrorResult(UnknownFailure(message: 'Gagal verifikasi OTP: $e'));
+    }
+  }
+
+  @override
+  Future<Result<String>> resetPassword({
+    required String email,
+    required String resetToken,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      final message = await remoteDataSource.resetPassword(
+        email: email,
+        resetToken: resetToken,
+        password: password,
+        passwordConfirmation: passwordConfirmation,
+      );
+      return Success(message);
+    } on NetworkException catch (e) {
+      return ErrorResult(NetworkFailure(message: e.message));
+    } on ApiException catch (e) {
+      return ErrorResult(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } catch (e, stack) {
+      AppLogger.e('AuthRepository resetPassword error', error: e, stackTrace: stack);
+      return ErrorResult(UnknownFailure(message: 'Gagal mereset kata sandi: $e'));
+    }
+  }
 }

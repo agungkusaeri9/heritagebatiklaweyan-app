@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/logging/app_logger.dart';
+import '../../../../core/utils/result.dart';
+import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
@@ -13,6 +15,7 @@ class AuthViewModel extends Notifier<AuthState> {
   late final RegisterUseCase _registerUseCase;
   late final LogoutUseCase _logoutUseCase;
   late final GetCurrentUserUseCase _getCurrentUserUseCase;
+  late final AuthRepository _authRepository;
 
   @override
   AuthState build() {
@@ -20,6 +23,7 @@ class AuthViewModel extends Notifier<AuthState> {
     _registerUseCase = ref.watch(authRegisterUseCaseProvider);
     _logoutUseCase = ref.watch(authLogoutUseCaseProvider);
     _getCurrentUserUseCase = ref.watch(authGetCurrentUserUseCaseProvider);
+    _authRepository = ref.watch(authRepositoryProvider);
 
     // Cek status sesi login saat inisialisasi aplikasi
     Future.microtask(() => checkAuthStatus());
@@ -152,5 +156,84 @@ class AuthViewModel extends Notifier<AuthState> {
 
   void clearError() {
     state = state.copyWith(clearError: true);
+  }
+
+  /// Kirim kode OTP pemulihan kata sandi
+  Future<Result<String>> sendPasswordResetOtp(String email) async {
+    state = state
+        .copyWith(status: AuthStatus.loading, clearError: true)
+        .addLog('Mengirim permintaan OTP reset password...');
+    final result = await _authRepository.sendPasswordResetOtp(email: email);
+    result.fold(
+      onSuccess: (msg) {
+        state = state
+            .copyWith(status: AuthStatus.unauthenticated, clearError: true)
+            .addLog(msg);
+      },
+      onFailure: (failure) {
+        state = state
+            .copyWith(status: AuthStatus.error, errorMessage: failure.message)
+            .addLog('Gagal kirim OTP: ${failure.message}');
+      },
+    );
+    return result;
+  }
+
+  /// Verifikasi kode OTP pemulihan kata sandi
+  Future<Result<String>> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    state = state
+        .copyWith(status: AuthStatus.loading, clearError: true)
+        .addLog('Memverifikasi kode OTP...');
+    final result = await _authRepository.verifyPasswordResetOtp(
+      email: email,
+      otp: otp,
+    );
+    result.fold(
+      onSuccess: (_) {
+        state = state
+            .copyWith(status: AuthStatus.unauthenticated, clearError: true)
+            .addLog('OTP terverifikasi.');
+      },
+      onFailure: (failure) {
+        state = state
+            .copyWith(status: AuthStatus.error, errorMessage: failure.message)
+            .addLog('Verifikasi OTP gagal: ${failure.message}');
+      },
+    );
+    return result;
+  }
+
+  /// Reset kata sandi menggunakan reset token
+  Future<Result<String>> resetPassword({
+    required String email,
+    required String resetToken,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    state = state
+        .copyWith(status: AuthStatus.loading, clearError: true)
+        .addLog('Menyimpan kata sandi baru...');
+    final result = await _authRepository.resetPassword(
+      email: email,
+      resetToken: resetToken,
+      password: password,
+      passwordConfirmation: passwordConfirmation,
+    );
+    result.fold(
+      onSuccess: (msg) {
+        state = state
+            .copyWith(status: AuthStatus.unauthenticated, clearError: true)
+            .addLog(msg);
+      },
+      onFailure: (failure) {
+        state = state
+            .copyWith(status: AuthStatus.error, errorMessage: failure.message)
+            .addLog('Reset kata sandi gagal: ${failure.message}');
+      },
+    );
+    return result;
   }
 }

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/asset_constants.dart';
+import '../../../../core/storage/storage_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Halaman 1: Welcome Screen (ARBatika)
-class WelcomeView extends StatelessWidget {
+class WelcomeView extends ConsumerWidget {
   const WelcomeView({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final size = MediaQuery.of(context).size;
     final isShortScreen = size.height < 700;
 
@@ -264,8 +266,13 @@ class WelcomeView extends StatelessWidget {
                     // "Already have an account? Sign in" Text
                     Center(
                       child: GestureDetector(
-                        onTap: () {
-                          context.go('/login');
+                        onTap: () async {
+                          await ref
+                              .read(localStorageServiceProvider)
+                              .setOnboardingCompleted(true);
+                          if (context.mounted) {
+                            context.go('/login');
+                          }
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),

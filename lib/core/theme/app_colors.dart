@@ -35,6 +35,22 @@ class AppColors {
   static const Color error = Color(0xFFEF4444);
   static const Color info = Color(0xFF3B82F6);
 
+  // Soft / Pastel Feedback Colors (Nyaman di mata & tidak menyala)
+  static const Color errorLight = Color(0xFFFFF1F2); // Background merah pastel sangat soft (Rose-50)
+  static const Color errorBorder = Color(0xFFFECDD3); // Border merah soft
+  static const Color errorText = Color(0xFF9F1239); // Teks merah pekat elegan & mudah dibaca (Rose-900)
+  static const Color errorIconBg = Color(0xFFFFE4E6); // Lingkaran icon merah soft
+
+  static const Color successLight = Color(0xFFF0FDF4); // Background hijau pastel soft
+  static const Color successBorder = Color(0xFFBBF7D0); // Border hijau soft
+  static const Color successText = Color(0xFF166534); // Teks hijau pekat elegan
+  static const Color successIconBg = Color(0xFFDCFCE7); // Lingkaran icon hijau soft
+
+  static const Color infoLight = Color(0xFFEFF6FF); // Background biru pastel soft
+  static const Color infoBorder = Color(0xFFBFDBFE); // Border biru soft
+  static const Color infoText = Color(0xFF1E40AF); // Teks biru pekat
+  static const Color infoIconBg = Color(0xFFDBEAFE); // Lingkaran icon biru soft
+
   // Borders & Dividers
   static const Color border = Color(0xFFE2E8F0);
   static const Color borderFocused = Color(0xFFD97706);
