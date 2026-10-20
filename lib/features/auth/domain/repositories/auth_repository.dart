@@ -19,6 +19,14 @@ abstract class AuthRepository {
 
   Future<Result<UserEntity?>> getCurrentUser();
 
+  Future<Result<UserEntity>> updateProfile({
+    required String name,
+    required String phone,
+    required String gender,
+    String? avatar,
+    String? avatarFilePath,
+  });
+
   Future<bool> isAuthenticated();
 
   Future<Result<String>> sendPasswordResetOtp({required String email});

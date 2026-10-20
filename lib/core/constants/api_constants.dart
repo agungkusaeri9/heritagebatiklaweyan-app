@@ -52,6 +52,7 @@ class ApiConstants {
   static const String refreshToken = '/auth/refresh';
   static const String logout = '/auth/logout';
   static const String profile = '/auth/me';
+  static const String updateProfile = '/user/profile';
   static const String forgotPasswordSendOtp = '/auth/forgot-password/send-otp';
   static const String forgotPasswordVerifyOtp = '/auth/forgot-password/verify-otp';
   static const String forgotPasswordReset = '/auth/forgot-password/reset-password';
@@ -60,4 +61,7 @@ class ApiConstants {
   static const String settings = '/settings';
   static const String paymentMethods = '/payment-methods';
   static const String faqs = '/faqs';
+
+  // User Location Endpoint
+  static const String userLocation = '/user/location';
 }

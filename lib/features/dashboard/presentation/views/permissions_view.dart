@@ -82,7 +82,7 @@ class PermissionsView extends ConsumerWidget {
               description: 'Menentukan alamat pengiriman secara akurat dan menghitung estimasi ongkos kirim kurir.',
               type: AppPermissionType.location,
               result: permissionsState.permissions[AppPermissionType.location],
-              onRequest: () => notifier.request(AppPermissionType.location),
+              onRequest: () => context.push('/location'),
             ),
             const SizedBox(height: 14),
 

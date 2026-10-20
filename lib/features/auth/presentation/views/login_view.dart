@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../location/presentation/viewmodels/location_providers.dart';
 import '../viewmodels/auth_providers.dart';
 
 /// Custom Clipper untuk lengkungan cembung elegan di bagian bawah Header
@@ -72,8 +73,24 @@ class _LoginViewState extends ConsumerState<LoginView> {
     if (!mounted) return;
 
     if (success) {
-      AppSnackBar.showSuccess(context, 'Login successful! Welcome back.');
-      context.go('/dashboard');
+      final updatedAuthState = ref.read(authViewModelProvider);
+      final isComplete = updatedAuthState.user?.isProfileComplete ?? false;
+      final hasLocation =
+          ref.read(locationRepositoryProvider).getCachedLocation() != null;
+
+      if (!isComplete) {
+        AppSnackBar.showSuccess(
+          context,
+          'Login berhasil! Silakan lengkapi profil Anda.',
+        );
+        context.go('/complete-profile');
+      } else if (!hasLocation) {
+        context.go('/location');
+      } else {
+        ref.read(locationViewModelProvider.notifier).loadLocation();
+        AppSnackBar.showSuccess(context, 'Login successful! Welcome back.');
+        context.go('/dashboard');
+      }
     } else {
       final authState = ref.read(authViewModelProvider);
       AppSnackBar.showError(

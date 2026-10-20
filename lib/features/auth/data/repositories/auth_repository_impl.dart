@@ -121,6 +121,41 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<UserEntity>> updateProfile({
+    required String name,
+    required String phone,
+    required String gender,
+    String? avatar,
+    String? avatarFilePath,
+  }) async {
+    try {
+      final updatedUser = await remoteDataSource.updateProfile(
+        name: name,
+        phone: phone,
+        gender: gender,
+        avatar: avatar,
+        avatarFilePath: avatarFilePath,
+      );
+
+      // Simpan user baru di local cache agar langsung tersinkron
+      await localDataSource.cacheUser(updatedUser);
+      await localDataSource.saveLastUsername(updatedUser.username);
+
+      AppLogger.i('AuthRepository: Profil pengguna ${updatedUser.name} berhasil diperbarui');
+      return Success(updatedUser.toEntity());
+    } on UnauthorizedException catch (e) {
+      return ErrorResult(AuthFailure(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      return ErrorResult(NetworkFailure(message: e.message));
+    } on ApiException catch (e) {
+      return ErrorResult(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } catch (e, stack) {
+      AppLogger.e('AuthRepository updateProfile error', error: e, stackTrace: stack);
+      return ErrorResult(UnknownFailure(message: 'Gagal memperbarui profil: $e'));
+    }
+  }
+
+  @override
   Future<bool> isAuthenticated() async {
     final token = await localDataSource.getAccessToken();
     return token != null && token.isNotEmpty;

@@ -51,13 +51,13 @@ class AuthViewModel extends Notifier<AuthState> {
         } else {
           state = state
               .addLog('Belum ada sesi aktif. Silakan masuk ke akun Anda.')
-              .copyWith(status: AuthStatus.unauthenticated);
+              .copyWith(status: AuthStatus.unauthenticated, clearUser: true);
         }
       },
       onFailure: (failure) {
         state = state
             .addLog('Pemeriksaan token gagal: ${failure.message}')
-            .copyWith(status: AuthStatus.unauthenticated);
+            .copyWith(status: AuthStatus.unauthenticated, clearUser: true);
       },
     );
   }
@@ -145,17 +145,65 @@ class AuthViewModel extends Notifier<AuthState> {
   Future<void> logout() async {
     state = state.addLog('Menghapus token sesi dari penyimpanan...');
     await _logoutUseCase();
-    state = state
-        .addLog('Logout berhasil. Sesi telah berakhir.')
-        .copyWith(
-          status: AuthStatus.unauthenticated,
-          user: null,
-          clearError: true,
-        );
+    state = const AuthState(
+      status: AuthStatus.unauthenticated,
+      user: null,
+      logs: ['Logout berhasil. Sesi telah berakhir.'],
+    );
   }
 
   void clearError() {
     state = state.copyWith(clearError: true);
+  }
+
+  /// Melengkapi atau memperbarui profil pengguna (Nama, Telepon, Gender, Avatar)
+  Future<bool> updateProfile({
+    required String name,
+    required String phone,
+    required String gender,
+    String? avatar,
+    String? avatarFilePath,
+  }) async {
+    state = state
+        .copyWith(isSubmitting: true, clearError: true)
+        .addLog('Menyimpan data profil pengguna ke server...');
+
+    AppLogger.i(
+      'AuthViewModel: Memperbarui profil $name, $phone, $gender, avatarFile: $avatarFilePath',
+    );
+
+    final result = await _authRepository.updateProfile(
+      name: name,
+      phone: phone,
+      gender: gender,
+      avatar: avatar,
+      avatarFilePath: avatarFilePath,
+    );
+
+    return result.fold(
+      onSuccess: (updatedUser) {
+        state = state
+            .addLog('Profil berhasil diperbarui dan disinkronkan!')
+            .copyWith(
+              status: AuthStatus.authenticated,
+              user: updatedUser,
+              isSubmitting: false,
+              clearError: true,
+            );
+        return true;
+      },
+      onFailure: (failure) {
+        AppLogger.w('AuthViewModel updateProfile failure: ${failure.message}');
+        state = state
+            .addLog('Gagal memperbarui profil: ${failure.message}')
+            .copyWith(
+              status: AuthStatus.authenticated, // Pertahankan sesi autentikasi
+              isSubmitting: false,
+              errorMessage: failure.message,
+            );
+        return false;
+      },
+    );
   }
 
   /// Kirim kode OTP pemulihan kata sandi

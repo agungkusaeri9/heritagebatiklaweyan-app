@@ -13,4 +13,5 @@ class StorageKeys {
   static const String hasCompletedOnboarding = 'PREF_HAS_COMPLETED_ONBOARDING';
   static const String appLanguage = 'PREF_APP_LANGUAGE';
   static const String cachedUserProfile = 'PREF_CACHED_USER_PROFILE';
+  static const String cachedUserLocation = 'PREF_CACHED_USER_LOCATION';
 }

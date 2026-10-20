@@ -8,7 +8,9 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_scaffold.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
+import '../../../location/presentation/viewmodels/location_providers.dart';
 
 /// Dashboard / Halaman Utama Toko Online
 class DashboardView extends ConsumerStatefulWidget {
@@ -64,6 +66,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
             onPressed: () async {
               await ref.read(authViewModelProvider.notifier).logout();
               if (context.mounted) {
+                AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
                 context.go('/login');
               }
             },
@@ -142,6 +145,104 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // Banner Lokasi Pengiriman Interaktif
+            Consumer(
+              builder: (context, ref, child) {
+                final locationState = ref.watch(locationViewModelProvider);
+                final loc = locationState.location;
+
+                return GestureDetector(
+                  onTap: () => context.push('/location'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDF8F5),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.location_on_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Lokasi Pengiriman',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  if (loc != null) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: loc.isGps
+                                            ? const Color(0xFFDCFCE7)
+                                            : const Color(0xFFE2E8F0),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        loc.isGps ? 'GPS' : 'Manual',
+                                        style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: loc.isGps
+                                              ? const Color(0xFF15803D)
+                                              : const Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                loc?.displayName ?? 'Belum ditentukan - Sentuh untuk atur lokasi',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 18),
 
@@ -294,6 +395,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
               onPressed: () async {
                 await ref.read(authViewModelProvider.notifier).logout();
                 if (context.mounted) {
+                  AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
                   context.go('/login');
                 }
               },

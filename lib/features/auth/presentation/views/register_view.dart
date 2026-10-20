@@ -276,8 +276,19 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     if (!mounted) return;
 
     if (success) {
-      AppSnackBar.showSuccess(context, 'Registration successful! Welcome to ARBatika.');
-      context.go('/dashboard');
+      final updatedAuthState = ref.read(authViewModelProvider);
+      final isComplete = updatedAuthState.user?.isProfileComplete ?? false;
+
+      if (!isComplete) {
+        AppSnackBar.showSuccess(
+          context,
+          'Pendaftaran berhasil! Silakan lengkapi profil Anda.',
+        );
+        context.go('/complete-profile');
+      } else {
+        AppSnackBar.showSuccess(context, 'Registration successful! Welcome to ARBatika.');
+        context.go('/dashboard');
+      }
     } else {
       final authState = ref.read(authViewModelProvider);
       AppSnackBar.showError(

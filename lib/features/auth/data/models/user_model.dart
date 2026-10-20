@@ -4,10 +4,14 @@ import '../../domain/entities/user_entity.dart';
 class UserModel extends UserEntity {
   const UserModel({
     required super.id,
+    required super.name,
     required super.email,
     required super.username,
+    super.phone,
+    super.gender,
     required super.role,
     super.avatarUrl,
+    super.isProfileCompleteExplicit,
     required super.createdAt,
   });
 
@@ -15,11 +19,24 @@ class UserModel extends UserEntity {
     return UserModel(
       id: json['id'] != null
           ? json['id'].toString()
-          : (json['_id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}'),
+          : (json['_id']?.toString() ??
+              'usr_${DateTime.now().millisecondsSinceEpoch}'),
+      name: json['name']?.toString() ??
+          json['username']?.toString() ??
+          '',
       email: json['email']?.toString() ?? '',
-      username: json['username']?.toString() ?? json['name']?.toString() ?? '',
+      username: json['username']?.toString() ??
+          json['name']?.toString() ??
+          '',
+      phone: json['phone']?.toString(),
+      gender: json['gender']?.toString(),
       role: json['role']?.toString() ?? 'customer',
-      avatarUrl: json['avatar_url']?.toString() ?? json['profile_photo_url']?.toString(),
+      avatarUrl: json['avatar_url']?.toString() ??
+          json['profile_photo_url']?.toString() ??
+          json['avatar']?.toString(),
+      isProfileCompleteExplicit: json['is_profile_complete'] is bool
+          ? json['is_profile_complete'] as bool
+          : null,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -29,10 +46,14 @@ class UserModel extends UserEntity {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'name': name,
       'email': email,
       'username': username,
+      'phone': phone,
+      'gender': gender,
       'role': role,
       'avatar_url': avatarUrl,
+      'is_profile_complete': isProfileComplete,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -40,10 +61,14 @@ class UserModel extends UserEntity {
   UserEntity toEntity() {
     return UserEntity(
       id: id,
+      name: name,
       email: email,
       username: username,
+      phone: phone,
+      gender: gender,
       role: role,
       avatarUrl: avatarUrl,
+      isProfileCompleteExplicit: isProfileCompleteExplicit,
       createdAt: createdAt,
     );
   }

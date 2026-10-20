@@ -78,6 +78,32 @@ class PermissionService implements IPermissionService {
   @override
   Future<PermissionResult> checkPermission(AppPermissionType type) async {
     try {
+      if (type == AppPermissionType.gallery && !kIsWeb && Platform.isAndroid) {
+        final photosStatus = await Permission.photos.status;
+        if (photosStatus.isGranted || photosStatus.isLimited) {
+          return PermissionResult(
+            type: type,
+            status: photosStatus,
+            message: 'Status izin Galeri: ${photosStatus.name}',
+          );
+        }
+        final storageStatus = await Permission.storage.status;
+        if (storageStatus.isGranted) {
+          return PermissionResult(
+            type: type,
+            status: storageStatus,
+            message: 'Status izin Galeri: ${storageStatus.name}',
+          );
+        }
+        final statusToReport =
+            photosStatus.isPermanentlyDenied ? photosStatus : storageStatus;
+        return PermissionResult(
+          type: type,
+          status: statusToReport,
+          message: 'Status izin Galeri: ${statusToReport.name}',
+        );
+      }
+
       final permission = _mapTypeToPermission(type);
       final status = await permission.status;
       AppLogger.d('Permission check: ${_getPermissionName(type)} -> $status');
@@ -100,14 +126,46 @@ class PermissionService implements IPermissionService {
   @override
   Future<PermissionResult> requestPermission(AppPermissionType type) async {
     try {
-      final permission = _mapTypeToPermission(type);
       AppLogger.i('Requesting permission: ${_getPermissionName(type)}');
-      
+
+      if (type == AppPermissionType.gallery && !kIsWeb && Platform.isAndroid) {
+        // Coba minta permission photos terlebih dahulu (Android 13+)
+        var status = await Permission.photos.request();
+        // Jika tidak di-grant (misal pada Android 12 atau di bawahnya yang tidak mendukung READ_MEDIA_IMAGES),
+        // fallback ke permission storage
+        if (!status.isGranted && !status.isLimited) {
+          final storageStatus = await Permission.storage.request();
+          if (storageStatus.isGranted) {
+            status = storageStatus;
+          } else if (storageStatus.isPermanentlyDenied) {
+            status = storageStatus;
+          }
+        }
+
+        AppLogger.i('Gallery permission result on Android: $status');
+        String message;
+        if (status.isGranted || status.isLimited) {
+          message = 'Izin Galeri Foto & Media berhasil diberikan.';
+        } else if (status.isPermanentlyDenied) {
+          message =
+              'Izin Galeri ditolak permanen. Silakan aktifkan via Pengaturan Perangkat.';
+        } else {
+          message = 'Izin Galeri ditolak pengguna.';
+        }
+
+        return PermissionResult(
+          type: type,
+          status: status,
+          message: message,
+        );
+      }
+
+      final permission = _mapTypeToPermission(type);
       final status = await permission.request();
       AppLogger.i('Permission result: ${_getPermissionName(type)} -> $status');
 
       String message;
-      if (status.isGranted) {
+      if (status.isGranted || status.isLimited) {
         message = 'Izin ${_getPermissionName(type)} berhasil diberikan.';
       } else if (status.isPermanentlyDenied) {
         message =

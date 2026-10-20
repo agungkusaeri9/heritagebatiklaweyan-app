@@ -14,16 +14,19 @@ class AuthState {
   final UserEntity? user;
   final String? errorMessage;
   final List<String> logs;
+  final bool isSubmitting;
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.errorMessage,
     this.logs = const [],
+    this.isSubmitting = false,
   });
 
-  bool get isLoading => status == AuthStatus.loading;
-  bool get isAuthenticated => status == AuthStatus.authenticated;
+  bool get isLoading => status == AuthStatus.loading || isSubmitting;
+  bool get isAuthenticated =>
+      status == AuthStatus.authenticated && user != null;
   bool get hasError => status == AuthStatus.error && errorMessage != null;
 
   AuthState copyWith({
@@ -31,13 +34,16 @@ class AuthState {
     UserEntity? user,
     String? errorMessage,
     List<String>? logs,
+    bool? isSubmitting,
     bool clearError = false,
+    bool clearUser = false,
   }) {
     return AuthState(
       status: status ?? this.status,
-      user: user ?? this.user,
+      user: clearUser ? null : (user ?? this.user),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       logs: logs ?? this.logs,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
     );
   }
 

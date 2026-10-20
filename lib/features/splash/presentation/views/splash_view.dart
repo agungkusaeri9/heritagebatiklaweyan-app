@@ -5,6 +5,7 @@ import '../../../../core/constants/asset_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
+import '../../../location/presentation/viewmodels/location_providers.dart';
 import '../../../store/presentation/viewmodels/store_providers.dart';
 import '../../../../core/storage/storage_providers.dart';
 
@@ -72,7 +73,18 @@ class _SplashViewState extends ConsumerState<SplashView>
     final hasCompletedOnboarding = storage.hasCompletedOnboarding();
 
     if (authState.isAuthenticated) {
-      context.go('/dashboard');
+      if (authState.user != null && !authState.user!.isProfileComplete) {
+        context.go('/complete-profile');
+      } else {
+        final hasLocation =
+            ref.read(locationRepositoryProvider).getCachedLocation() != null;
+        if (!hasLocation) {
+          context.go('/location');
+        } else {
+          ref.read(locationViewModelProvider.notifier).loadLocation();
+          context.go('/dashboard');
+        }
+      }
     } else if (hasCompletedOnboarding) {
       context.go('/login');
     } else {

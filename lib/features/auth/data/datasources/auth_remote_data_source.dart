@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
@@ -21,6 +22,14 @@ abstract class AuthRemoteDataSource {
   Future<void> logout();
 
   Future<UserModel> getProfile();
+
+  Future<UserModel> updateProfile({
+    required String name,
+    required String phone,
+    required String gender,
+    String? avatar,
+    String? avatarFilePath,
+  });
 
   Future<String> sendPasswordResetOtp({required String email});
 
@@ -213,6 +222,107 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e, stack) {
       AppLogger.e('Error getting profile', error: e, stackTrace: stack);
       throw ApiException(message: 'Gagal mengambil profil: $e');
+    }
+  }
+
+  @override
+  Future<UserModel> updateProfile({
+    required String name,
+    required String phone,
+    required String gender,
+    String? avatar,
+    String? avatarFilePath,
+  }) async {
+    try {
+      AppLogger.i(
+        'AuthRemoteDataSource: Memperbarui profil: $name, $phone, $gender, avatarFile: $avatarFilePath',
+      );
+
+      dynamic requestData;
+      if (avatarFilePath != null && avatarFilePath.isNotEmpty) {
+        final fileName = avatarFilePath.split(Platform.pathSeparator).last;
+        final formData = FormData.fromMap({
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'gender': gender.trim(),
+          'avatar': await MultipartFile.fromFile(
+            avatarFilePath,
+            filename: fileName,
+          ),
+          '_method': 'PUT',
+        });
+        requestData = formData;
+      } else {
+        requestData = <String, dynamic>{
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'gender': gender.trim(),
+          if (avatar != null) 'avatar': avatar.trim(),
+        };
+      }
+
+      Response? response;
+      final candidateEndpoints = [
+        ApiConstants.updateProfile,
+        '/user/profile',
+        '/profile',
+        '${ApiConstants.apiBaseUrl}/user/profile',
+      ];
+
+      DioException? lastDioError;
+      for (final endpoint in candidateEndpoints) {
+        try {
+          if (requestData is FormData) {
+            AppLogger.d('AuthRemoteDataSource: Trying POST multipart $endpoint');
+            response = await dio.post(endpoint, data: requestData);
+          } else {
+            AppLogger.d('AuthRemoteDataSource: Trying PUT $endpoint');
+            response = await dio.put(endpoint, data: requestData);
+          }
+          if (response.statusCode != null &&
+              response.statusCode! >= 200 &&
+              response.statusCode! < 300) {
+            break;
+          }
+        } on DioException catch (e) {
+          lastDioError = e;
+          if (e.response?.statusCode == 404 || e.response?.statusCode == 405) {
+            try {
+              AppLogger.d('AuthRemoteDataSource: Trying fallback POST $endpoint');
+              response = await dio.post(endpoint, data: requestData);
+              if (response.statusCode != null &&
+                  response.statusCode! >= 200 &&
+                  response.statusCode! < 300) {
+                break;
+              }
+            } catch (_) {
+              // lanjut ke endpoint berikutnya
+            }
+            continue;
+          }
+          throw dioClient.handleDioError(e);
+        }
+      }
+
+      if (response != null && response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+        final userRaw = responseData['data'] ?? responseData['user'] ?? responseData;
+        if (userRaw is Map<String, dynamic>) {
+          return UserModel.fromJson(userRaw);
+        }
+      }
+
+      if (lastDioError != null) {
+        throw dioClient.handleDioError(lastDioError);
+      }
+
+      throw const ApiException(message: 'Format respon pembaruan profil tidak valid.');
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error updating profile', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal memperbarui profil: $e');
     }
   }
 

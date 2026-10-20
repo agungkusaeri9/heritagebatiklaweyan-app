@@ -3,15 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/viewmodels/auth_providers.dart';
 import '../../features/auth/presentation/viewmodels/auth_state.dart';
+import '../../features/auth/presentation/views/complete_profile_view.dart';
 import '../../features/auth/presentation/views/forgot_password_view.dart';
 import '../../features/auth/presentation/views/login_view.dart';
 import '../../features/auth/presentation/views/register_view.dart';
 import '../../features/auth/presentation/views/reset_password_view.dart';
 import '../../features/auth/presentation/views/verify_otp_view.dart';
-import '../../features/dashboard/presentation/views/dashboard_view.dart';
 import '../../features/dashboard/presentation/views/permissions_view.dart';
+import '../../features/home/presentation/views/home_view.dart';
+import '../../features/location/presentation/viewmodels/location_providers.dart';
+import '../../features/location/presentation/views/location_selection_view.dart';
 import '../../features/onboarding/presentation/views/onboarding_view.dart';
 import '../../features/onboarding/presentation/views/welcome_view.dart';
+import '../../features/profile/presentation/views/notification_settings_view.dart';
+import '../../features/profile/presentation/views/password_manager_view.dart';
+import '../../features/profile/presentation/views/profile_view.dart';
+import '../../features/profile/presentation/views/settings_view.dart';
 import '../../features/splash/presentation/views/splash_view.dart';
 import '../storage/storage_providers.dart';
 
@@ -61,6 +68,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterView(),
       ),
       GoRoute(
+        path: '/complete-profile',
+        name: 'complete-profile',
+        builder: (context, state) => const CompleteProfileView(),
+      ),
+      GoRoute(
         path: '/forgot-password',
         name: 'forgot-password',
         builder: (context, state) => ForgotPasswordView(
@@ -99,12 +111,47 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard',
         name: 'dashboard',
-        builder: (context, state) => const DashboardView(),
+        builder: (context, state) => const HomeView(),
+      ),
+      GoRoute(
+        path: '/home',
+        name: 'home',
+        builder: (context, state) => const HomeView(),
       ),
       GoRoute(
         path: '/permissions',
         name: 'permissions',
         builder: (context, state) => const PermissionsView(),
+      ),
+      GoRoute(
+        path: '/location',
+        name: 'location',
+        builder: (context, state) => const LocationSelectionView(),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        builder: (context, state) => const ProfileView(),
+      ),
+      GoRoute(
+        path: '/account',
+        name: 'account',
+        builder: (context, state) => const ProfileView(),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsView(),
+      ),
+      GoRoute(
+        path: '/settings/notifications',
+        name: 'notification-settings',
+        builder: (context, state) => const NotificationSettingsView(),
+      ),
+      GoRoute(
+        path: '/settings/password',
+        name: 'password-manager',
+        builder: (context, state) => const PasswordManagerView(),
       ),
     ],
     redirect: (context, state) {
@@ -112,6 +159,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final storage = ref.read(localStorageServiceProvider);
       final isAuthenticated = authState.isAuthenticated;
       final hasCompletedOnboarding = storage.hasCompletedOnboarding();
+      final isProfileComplete = authState.user?.isProfileComplete ?? true;
 
       final isSplash = state.matchedLocation == '/splash';
       final isWelcomeOrOnboarding = state.matchedLocation == '/welcome' ||
@@ -121,10 +169,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/forgot-password' ||
           state.matchedLocation == '/verify-otp' ||
           state.matchedLocation == '/reset-password';
+      final isCompleteProfileRoute = state.matchedLocation == '/complete-profile';
+      final isLocationRoute = state.matchedLocation == '/location';
 
       // Biarkan splash screen selesai menampilkan animasi logo sebelum bernavigasi
       if (isSplash) {
         return null;
+      }
+
+      // Rute pemilihan lokasi dapat diakses oleh guest maupun user yang sudah login
+      if (isLocationRoute) {
+        return null;
+      }
+
+      // Jika belum login dan mencoba ke complete profile
+      if (!isAuthenticated && isCompleteProfileRoute) {
+        return '/login';
       }
 
       // Jika belum login dan sedang berada di halaman login/register, TETAP DI HALAMAN INI!
@@ -147,9 +207,37 @@ final routerProvider = Provider<GoRouter>((ref) {
         return hasCompletedOnboarding ? '/login' : '/welcome';
       }
 
-      // Jika sudah login dan masih di halaman login/register/welcome/onboarding
-      if (isAuthenticated && (isAuthRoute || isWelcomeOrOnboarding)) {
-        return '/dashboard';
+      // Jika sudah login:
+      if (isAuthenticated) {
+        // Jika profil belum lengkap:
+        if (!isProfileComplete) {
+          if (!isCompleteProfileRoute) {
+            return '/complete-profile';
+          }
+          return null;
+        }
+
+        // Cek apakah user sudah memiliki lokasi tersimpan di cache
+        final hasLocation =
+            ref.read(locationRepositoryProvider).getCachedLocation() != null;
+
+        // Jika profil sudah lengkap:
+        if (isCompleteProfileRoute) {
+          if (hasLocation) {
+            ref.read(locationViewModelProvider.notifier).loadLocation();
+            return '/dashboard';
+          }
+          return '/location';
+        }
+
+        // Jika berada di auth routes (/login, /register, dll):
+        if (isAuthRoute || isWelcomeOrOnboarding) {
+          if (hasLocation) {
+            ref.read(locationViewModelProvider.notifier).loadLocation();
+            return '/dashboard';
+          }
+          return '/location';
+        }
       }
 
       return null;

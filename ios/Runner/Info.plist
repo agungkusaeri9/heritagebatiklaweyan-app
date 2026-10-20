@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Aplikasi Heritage Batik memerlukan akses lokasi untuk menentukan pengiriman dan layanan terdekat.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Aplikasi Heritage Batik memerlukan akses kamera untuk mengambil foto profil pengguna dan bukti pembayaran.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Aplikasi Heritage Batik memerlukan akses galeri foto untuk memilih foto profil dan bukti pembayaran.</string>
 </dict>
 </plist>

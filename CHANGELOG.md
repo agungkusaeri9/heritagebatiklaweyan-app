@@ -4,9 +4,129 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ---
 
+## [0.5.0-alpha.1] - 2026-10-20
+
+Implementasi modul Pengaturan Akun (Settings) yang dapat diakses langsung dari menu Profil, halaman Pengelola Kata Sandi (Password Manager) lengkap dengan checklist validasi keamanan real-time & integrasi backend API, halaman Pengaturan Notifikasi (Notification Settings), dialog konfirmasi Hapus Akun permanen, serta registrasi rute navigasi terintegrasi.
+
+### Fitur Baru: Pengaturan Akun & Keamanan (Settings & Password Manager)
+
+#### 1. Halaman Pengaturan Akun (Settings Screen)
+- **Akses Langsung dari Menu Profil**: Menu *"Settings"* pada halaman Akun/Profil pengguna kini langsung mengarahkan ke halaman `/settings`.
+- **Desain Kartu Elegan**: Tampilan berlatar putih bersih dengan header judul *"Settings"*, tombol navigasi kembali, dan kartu menu ber-border halus.
+- **Tiga Menu Utama**:
+  - **Notification Settings**: Navigasi ke pengaturan preferensi notifikasi aplikasi (`/settings/notifications`).
+  - **Password Manager**: Navigasi ke pengelolaan dan pembaruan kata sandi akun (`/settings/password`).
+  - **Delete Account**: Menu beraksen merah lembut untuk opsi penghapusan akun permanen.
+
+#### 2. Fitur Pengelola Kata Sandi (Password Manager)
+- **Tiga Kolom Isian Kata Sandi**:
+  - *Current Password*: Kolom isian kata sandi saat ini dengan tautan cepat *"Forgot Password?"* di bawahnya yang langsung mengarah ke alur pemulihan kata sandi (`/forgot-password`).
+  - *New Password*: Kolom isian kata sandi baru.
+  - *Confirm New Password*: Kolom konfirmasi pengulangan kata sandi baru.
+- **Toggle Show/Hide Password**: Ikon mata interaktif pada setiap kolom input untuk melihat atau menyembunyikan kata sandi secara independen.
+- **Checklist Kriteria Kata Sandi Real-Time**:
+  - Menampilkan 4 indikator keamanan: Minimal 8 karakter, memuat huruf besar & huruf kecil, memuat angka, serta memuat karakter khusus/simbol.
+  - Indikator otomatis berubah warna menjadi hijau dengan ikon ceklis (`✔`) secara interaktif saat kriteria terpenuhi.
+- **Validasi Komprehensif Sebelum Kirim**:
+  - Memastikan seluruh kolom wajib diisi.
+  - Memastikan seluruh kriteria keamanan kata sandi baru terpenuhi.
+  - Memastikan kata sandi baru tidak boleh sama dengan kata sandi saat ini.
+  - Memastikan konfirmasi kata sandi cocok secara persis.
+- **Tombol Aksi Melayang di Bawah (Fixed Bottom Button)**:
+  - Tombol *"Change Password"* bertema cokelat sogan khas ARBatika di bagian bawah layar yang selalu mudah dijangkau.
+  - Indikator putaran *loading* saat proses pengiriman data berlangsung.
+- **Integrasi Backend API**:
+  - Terhubung langsung ke endpoint `PUT /user/password` menggunakan `DioClient`.
+  - Penanganan respon sukses dengan pesan konfirmasi, pembersihan form otomatis, dan notifikasi SnackBar.
+  - Penanganan respon gagal dengan ekstraksi pesan kesalahan spesifik dari server (misalnya: kata sandi lama tidak cocok).
+
+#### 3. Halaman Pengaturan Notifikasi (Notification Settings)
+- **Pilihan Preferensi Notifikasi**:
+  - *Push Notification*: Pengaturan notifikasi umum aplikasi.
+  - *Order Status*: Pemberitahuan perubahan status pemesanan dan nomor resi pengiriman.
+  - *Promos & Discounts*: Informasi diskon, promo eksklusif, dan penawaran batik terbaru.
+  - *Payment Alerts*: Pengingat batas waktu pembayaran dan konfirmasi transaksi.
+- **Sakelar (Switch) Bertema Cokelat**: Desain sakelar toggle yang selaras dengan palet warna cokelat khas Heritage Batik.
+
+#### 4. Fitur Hapus Akun (Delete Account) & Proteksi Keamanan
+- **Dialog Modal Konfirmasi Permanen**: Menampilkan jendela peringatan tegas dengan ikon peringatan berwarna merah (*destructive*).
+- **Pemberitahuan Transparan**: Informasi jelas bahwa tindakan hapus akun akan menghapus profil, riwayat transaksi, poin, dan data alamat secara permanen dari sistem.
+- **Tombol Aksi Bersyarat**: Opsi pembatalan (*Batal*) dan tombol eksekusi (*Hapus*) yang dilengkapi status loading pencegah klik ganda serta pembersihan sesi (logout otomatis) jika permintaan diproses.
+
+#### 5. Registrasi Rute & Navigasi Terpusat
+- Pendaftaran rute baru pada `AppRouter` (`lib/core/router/app_router.dart`):
+  - `/settings`: Mengarah ke `SettingsView`.
+  - `/settings/notifications`: Mengarah ke `NotificationSettingsView`.
+  - `/settings/password`: Mengarah ke `PasswordManagerView`.
+- Pembaruan model `ProfileMenuItemModel` dan widget `ProfileMenuList` agar item menu Settings terhubung langsung ke rute `/settings`.
+
+---
+
+## [0.4.0] - 2026-10-19
+
+Implementasi antarmuka (UI) Halaman Utama (Home Screen) Flutter berdesain modern, elegan, dan terstruktur dengan komponen reusable, banner promo carousel, kartu informasi toko & URBatik Points, kategori produk interaktif, daftar rekomendasi batik dengan badge diskon & strikethrough, serta navigasi 4 tab responsif.
+
+### Fitur Baru: Halaman Utama (Home Screen)
+
+#### 1. Header & Search Bar
+- **Header Lokasi Pengiriman**: Menampilkan alamat aktif pengiriman (`Deliver to`) dengan dropdown interaktif untuk mengganti lokasi secara mudah.
+- **Ikon Keranjang (Cart) & Notifikasi Ber-Badge**: Menampilkan badge merah penanda jumlah item belanjaan dan notifikasi terbaru.
+- **Search Bar Modern**: Dilengkapi ikon pencarian, placeholder `Search here ...`, dan tombol filter cepat bertema cokelat sogan.
+
+#### 2. Banner Promo Carousel
+- **Banner Promosi Elegan**: Menampilkan judul promo, deskripsi singkat, tag diskon menarik (hingga 50% OFF), dan tombol aksi cepat.
+- **Indikator Titik Dinamis**: Dilengkapi animasi dots halus di bawah banner untuk menandai slide promo yang sedang aktif.
+- **Dukungan Swipe & Auto-Scroll**: Berpindah secara halus menggunakan data dummy lokal.
+
+#### 3. Information Card (Toko & Poin)
+- **Informasi Toko Terdekat**: Menampilkan nama toko *"Heritage Batik Store"* dan estimasi jarak (1.2 km).
+- **Poin Loyalitas URBatik**: Menampilkan saldo poin belanja (*2.450 Pts*) dengan aksen bintang emas.
+- **Pembatas Vertikal Proporsional**: Layout rapi yang menyesuaikan berbagai ukuran layar ponsel tanpa overflow.
+
+#### 4. Kategori Produk (Category Section)
+- **5 Kategori Batik Pilihan**: Sarung, Kain, Tunik, Anak-Anak, dan All.
+- **Umpan Balik Visual Interaktif**: Kategori yang dipilih otomatis mendapatkan sorotan border dan latar belakang aksen cokelat sogan secara lokal.
+
+#### 5. Rekomendasi Produk (Recommendation Section)
+- **Kartu Produk Scroll Horizontal**: Menampilkan visual kain/busana batik autentik, nama produk, rating bintang, dan jumlah penjualan.
+- **Penetapan Harga Diskon**: Menampilkan harga setelah diskon yang jelas serta harga asli dengan coretan garis (*strikethrough*).
+- **Badge Diskon & Aksi Cepat**: Dilengkapi lencana persentase diskon (`-25%`), tombol favorit (*wishlist*), dan tombol tambah ke keranjang mini.
+
+#### 6. Bilah Navigasi Bawah (Bottom Navigation)
+- **4 Menu Utama**: Home, Wishlist, History, dan Account dengan status visual aktif yang tegas.
+- **Perpindahan Tab Halus**: Navigasi antar tab berbasis state lokal dengan tampilan placeholder bersih untuk Wishlist dan History, serta tab Account terintegrasi.
+
+---
+
+### Fitur Baru: Halaman Profil Pengguna (Profile Screen)
+
+#### 1. Header Profil
+- **Tombol Kembali (Back)**: Tombol melingkar dengan ikon panah di sudut kiri atas untuk navigasi kembali yang responsif.
+- **Judul Terpusat**: Teks judul *"Profile"* yang proporsional di tengah header.
+
+#### 2. Informasi Profil (Profile Information)
+- **Foto Profil Melingkar**: Avatar foto profil pengguna dengan border halus dan bayangan elegan.
+- **Tombol Edit Pena (Pencil Icon)**: Tombol melingkar cokelat sogan dengan ikon pena (`Icons.edit_rounded`) di sudut kanan bawah foto untuk memicu perubahan foto profil.
+- **Nama Pengguna Terpusat**: Tampilan nama pengguna yang tegas dan jelas di bawah foto profil.
+
+#### 3. Daftar Menu Pengaturan Akun (Profile Menu List)
+- **8 Menu Pilihan Lengkap**: *Your profile*, *Payment Methods*, *My Orders*, *Settings*, *Help Center*, *Privacy Policy*, *Invites Friends*, dan *Log out*.
+- **Ikon, Label & Chevron Konsisten**: Setiap baris menu dilengkapi ikon khusus berlatar lingkaran lembut, label yang jelas, panah chevron kanan, serta pembatas tipis (*divider*).
+- **Aksi Khusus & Simulasi Log Out**: Menu *Log out* memiliki warna merah (*destructive*) dengan dialog modal konfirmasi keluar akun yang bersahabat.
+
+#### 4. Bilah Navigasi Bawah Melayang (Rounded Pill Bottom Navigation)
+- **Desain Rounded Pill Melayang**: Background gelap elegan (`#231B15`) melayang dengan sudut melengkung sempurna (*radius 36*).
+- **5 Menu Utama Reusable**: Home, Bag, Wishlist, Messages, dan Account.
+- **Indikator Aktif Lingkaran Putih**: Menu aktif memiliki latar lingkaran putih dengan ikon cokelat khas Heritage Batik (`#704F38`), sedangkan menu non-aktif berwarna terang transparan.
+- **Komponen Inti Reusable (`AppBottomNavigation`)**: Dibuat sebagai widget reusable terpusat di `lib/core/widgets/app_bottom_navigation.dart`, digunakan bersama oleh Dashboard/Home (`HomeBottomNavigation`) dan Halaman Profil/Akun (`ProfileBottomNavigation`).
+- **Integrasi Menu Account di Dashboard/Home**: Tab ke-5 (index 4) pada Dashboard/Home kini langsung menampilkan halaman Akun lengkap (foto profil melingkar, tombol edit pena, nama, email, serta 8 menu pengaturan akun).
+- **Dukungan Rute Ganda**: Menambahkan rute `/account` di samping `/profile` untuk navigasi langsung ke halaman akun pengguna.
+
+---
+
 ## [0.3.0] - 2026-10-18
 
-Pembaruan fitur baru sistem pemulihan akun: alur Lupa Kata Sandi (Forgot Password), verifikasi keamanan menggunakan 6 kotak kode OTP interaktif, serta pembuatan kata sandi baru yang terhubung langsung ke backend server.
+Pembaruan fitur baru sistem pemulihan akun (Lupa Kata Sandi & verifikasi 6 kotak kode OTP interaktif), fitur pemilihan lokasi pengguna (GPS perangkat & input manual), serta halaman Lengkapi Profil (Complete Your Profile) otomatis setelah masuk akun.
 
 ### Fitur Baru: Pemulihan Akun & Kata Sandi
 
@@ -25,6 +145,51 @@ Pembaruan fitur baru sistem pemulihan akun: alur Lupa Kata Sandi (Forgot Passwor
 - **Integrasi Verifikasi Kode**: Setelah 6 kotak OTP diverifikasi oleh server, pengguna langsung diarahkan ke layar pembuatan kata sandi baru dengan membawa token keamanan.
 - **Checklist 4 Syarat Kata Sandi**: Dilengkapi panduan keamanan (minimal 8 karakter, huruf besar & kecil, angka, dan simbol khusus) yang otomatis berubah hijau ketika terpenuhi secara real-time.
 - **Kembali Otomatis ke Sign In**: Setelah kata sandi berhasil diperbarui, muncul notifikasi sukses dan pengguna langsung diarahkan kembali ke layar Sign In.
+
+---
+
+### Fitur Baru: Pemilihan Lokasi & Sinkronisasi (Location Selection)
+
+#### 1. Deteksi Lokasi Otomatis via GPS
+- **Tombol *"Allow Location Access"***: Mengambil koordinat lokasi pengguna (latitude & longitude) secara langsung dan akurat dalam satu kali sentuh.
+- **Hemat Daya Baterai**: Lokasi hanya diambil satu kali saat diminta (one-shot), tanpa proses pelacakan terus-menerus di latar belakang yang menguras baterai.
+- **Penanganan Izin yang Ramah**: Menangani kondisi jika sensor GPS mati, izin lokasi ditolak sementara, atau ditolak permanen dengan tombol langsung ke Pengaturan Perangkat (*Open Settings*).
+
+#### 2. Pengisian Lokasi Manual
+- **Formulir Alamat Mandiri**: Pengguna dapat memasukkan detail nama jalan, kelurahan, atau kota tanpa perlu menyalakan GPS perangkat.
+- **Pilihan Label Cepat (Chips)**: Dilengkapi tombol label instan seperti *"Rumah"*, *"Kantor"*, *"Toko"*, dan *"Laweyan"* untuk menandai tempat favorit dengan mudah.
+- **Bebas Ketergantungan Layanan Luar**: Lokasi tersimpan langsung tanpa memerlukan layanan peta/geocoding pihak ketiga yang berbayar.
+
+#### 3. Penyimpanan Lokal (Cache Offline) & Sinkronisasi Server
+- **Muat Instan dari Memori HP**: Lokasi terakhir yang pernah dipilih langsung ditampilkan saat halaman dibuka tanpa menunggu jaringan internet.
+- **Sinkronisasi Otomatis ke Backend**: Saat perangkat online dan pengguna telah masuk akun, lokasi disinkronkan ke server secara otomatis melalui endpoint resmi (`/api/v1/user/location`).
+- **Tahan Gangguan Jaringan**: Aplikasi tetap berjalan lancar dan tidak keluar mendadak (crash) meski koneksi internet sedang lambat atau offline.
+
+#### 4. Akses Cepat di Beranda & Pengaturan
+- **Kartu Lokasi di Dasbor Utama**: Menampilkan ringkasan lokasi aktif pengguna di bagian atas beranda belanja dengan tombol pembaruan cepat.
+- **Tautan Menu Izin (Permissions)**: Menu izin perangkat kini dapat langsung membuka layar pemilihan lokasi untuk memudahkan pengguna.
+
+---
+
+### Fitur Baru: Halaman Lengkapi Profil (Complete Your Profile)
+
+#### 1. Tampilan Header & Avatar Elegan
+- **Header Cokelat Melengkung ARBatika**: Bagian atas bertema cokelat khas Batik Laweyan (`#704F38`) dengan sudut melengkung halus dan pesan ramah kepada pembeli.
+- **Avatar Interaktif dengan Pilihan Galeri**: Menampilkan foto profil melayang dengan tombol galeri cepat untuk memilih foto dari galeri perangkat, preview langsung, serta opsi menggunakan avatar bawaan ARBatika.
+
+#### 2. Formulir Identitas Pengguna yang Rapi
+- **Kolom Nama Lengkap (Full Name)**: Kolom isian nama dengan ikon profil, otomatis terisi data awal, dan validasi minimal 2 karakter.
+- **Kolom Nomor Telepon (+62 Indonesia)**: Dilengkapi kode negara (`+62`), pemformatan hanya angka, dan validasi panjang digit standar nomor ponsel.
+- **Pilihan Jenis Kelamin (Gender)**: Dropdown pilihan *Laki-laki (Male)* atau *Perempuan (Female)* dengan gaya border oval selaras aplikasi.
+
+#### 3. Alur Otomatis & Terintegrasi
+- **Loading Stabil di Halaman Profil**: Indikator loading tetap berada di tombol profil selama proses penyimpanan tanpa berpindah atau berkedip ke layar masuk (login).
+- **Alur Bertahap (Profil -> Lokasi -> Dasbor)**:
+  - Setelah profil berhasil disimpan, jika pengguna belum pernah memilih lokasi/alamat, aplikasi langsung mengarahkan ke layar Pemilihan Lokasi (`/location`) untuk perizinan GPS atau input manual.
+  - Jika pengguna sudah pernah menyimpan lokasi sebelumnya, sinkronisasi lokasi berjalan otomatis di latar belakang (*background sync*) dan aplikasi langsung menuju halaman utama (Dashboard).
+- **Tombol *"Complete Profile"***: Dilengkapi proteksi cegah klik ganda dan feedback notifikasi kartu lembut saat berhasil disimpan.
+#### 4. Perbaikan Alur Keluar Akun (Logout)
+- **Langsung Kembali ke Halaman Masuk**: Memperbaiki pembersihan data sesi dan status autentikasi saat logout sehingga aplikasi langsung berpindah seketika ke layar Sign In secara responsif.
 
 ---
 
