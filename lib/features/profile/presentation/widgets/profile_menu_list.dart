@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/models/profile_menu_item_model.dart';
+import 'logout_confirmation_bottom_sheet.dart';
 import 'profile_menu_item.dart';
 
 /// Reusable Widget: ProfileMenuList
@@ -18,6 +19,10 @@ class ProfileMenuList extends StatelessWidget {
   });
 
   void _handleItemTap(BuildContext context, ProfileMenuItemModel item) {
+    if (item.badgeText != null) {
+      return;
+    }
+
     if (onMenuItemTap != null) {
       onMenuItemTap!(item);
       return;
@@ -33,8 +38,18 @@ class ProfileMenuList extends StatelessWidget {
       return;
     }
 
+    if (item.id == 'help_center') {
+      context.push('/help-center');
+      return;
+    }
+
+    if (item.id == 'privacy_policy') {
+      context.push('/privacy-policy');
+      return;
+    }
+
     if (item.id == 'log_out') {
-      _showLogoutDialog(context);
+      LogoutConfirmationBottomSheet.show(context, onLogout: onLogout);
       return;
     }
 
@@ -44,57 +59,6 @@ class ProfileMenuList extends StatelessWidget {
       SnackBar(
         content: Text('Menu ${item.title} (Tahap integrasi berikutnya)'),
         duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Keluar dari Akun',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari akun Heritage Batik?',
-          style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              if (onLogout != null) {
-                await onLogout!();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Simulasi logout berhasil (Tahap integrasi berikutnya)'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Keluar'),
-          ),
-        ],
       ),
     );
   }

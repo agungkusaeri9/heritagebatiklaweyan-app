@@ -22,7 +22,12 @@ class MockStoreRemoteDataSource implements StoreRemoteDataSource {
   }
 
   @override
-  Future<List<FaqModel>> getFaqs() async {
+  Future<List<FaqModel>> getFaqs({String? category, String? search}) async {
+    return [];
+  }
+
+  @override
+  Future<List<String>> getFaqCategories() async {
     return [];
   }
 }

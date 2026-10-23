@@ -8,6 +8,8 @@ import 'core/router/app_router.dart';
 import 'core/storage/storage_providers.dart';
 import 'core/theme/app_theme.dart';
 
+import 'core/widgets/app_snackbar.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -17,9 +19,13 @@ Future<void> main() async {
   // Inisialisasi Environment Variables (.env)
   try {
     await dotenv.load(fileName: '.env');
-    AppLogger.i('BOOT: Environment (.env) berhasil dimuat. Base URL: ${ApiConstants.baseUrl}');
+    AppLogger.i(
+      'BOOT: Environment (.env) berhasil dimuat. Base URL: ${ApiConstants.baseUrl}',
+    );
   } catch (e) {
-    AppLogger.w('BOOT: File .env tidak ditemukan atau gagal dimuat, menggunakan default fallback (${ApiConstants.baseUrl}): $e');
+    AppLogger.w(
+      'BOOT: File .env tidak ditemukan atau gagal dimuat, menggunakan default fallback (${ApiConstants.baseUrl}): $e',
+    );
   }
 
   // Inisialisasi SharedPreferences untuk penyimpanan non-sensitif
@@ -45,6 +51,7 @@ class HeritageBatikApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Heritage Batik Laweyan',
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,

@@ -25,6 +25,7 @@ void main() {
         'policies': {
           'privacy_policy': 'Kebijakan privasi',
           'policy': 'Ketentuan toko',
+          'cancellation_policy': 'Kebijakan pembatalan pesanan',
         },
         'updated_at': '2026-03-01T12:00:00Z',
       };
@@ -34,17 +35,20 @@ void main() {
       expect(model.phone, '0271-714000');
       expect(model.whatsapp, '6281234567890');
       expect(model.privacyPolicy, 'Kebijakan privasi');
+      expect(model.cancellationPolicy, 'Kebijakan pembatalan pesanan');
 
       final map = model.toMap();
       expect(map['id'], 1);
       expect(map['name'], 'Heritage Batik Laweyan');
       expect(map['whatsapp'], '6281234567890');
+      expect(map['cancellation_policy'], 'Kebijakan pembatalan pesanan');
 
       final fromDb = StoreSettingModel.fromMap(map);
       expect(fromDb.name, model.name);
       expect(fromDb.phone, model.phone);
       expect(fromDb.whatsapp, model.whatsapp);
       expect(fromDb.address, model.address);
+      expect(fromDb.cancellationPolicy, model.cancellationPolicy);
     });
 
     test('PaymentMethodModel serialization and SQLite mapping', () {

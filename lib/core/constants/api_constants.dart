@@ -59,6 +59,7 @@ class ApiConstants {
 
   // Store & Master Data Endpoints
   static const String settings = '/settings';
+  static const String privacyPolicy = '/settings/privacy-policy';
   static const String paymentMethods = '/payment-methods';
   static const String faqs = '/faqs';
 

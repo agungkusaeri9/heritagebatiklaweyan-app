@@ -1,7 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
@@ -23,7 +25,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
       context: context,
       barrierDismissible: !_isDeleting,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (modalContext, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -60,20 +62,21 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Tindakan ini bersifat permanen dan tidak dapat dibatalkan.',
+                'Apakah Anda benar-benar yakin ingin menghapus akun?',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFEF4444),
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A),
+                  height: 1.4,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                'Seluruh data profil, riwayat pesanan, alamat, dan keranjang belanja Anda akan dihapus secara permanen dari sistem Heritage Batik.',
+                'Tindakan ini bersifat permanen dan tidak dapat dibatalkan. Seluruh data profil, keranjang belanja, alamat, dan riwayat pesanan Anda akan dinonaktifkan dan dihapus dari sistem Heritage Batik.',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   color: const Color(0xFF64748B),
-                  height: 1.4,
+                  height: 1.45,
                 ),
               ),
             ],
@@ -115,20 +118,61 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                               _isDeleting = true;
                             });
 
-                            // Proses penghapusan akun
-                            await Future.delayed(const Duration(milliseconds: 1200));
+                            try {
+                              final dioClient = ref.read(dioClientProvider);
 
-                            if (!mounted) return;
-                            if (dialogContext.mounted) {
-                              Navigator.pop(dialogContext);
+                              // 1. Panggil endpoint delete account di backend
+                              await dioClient.dio.delete('/user/account');
+
+                              // 2. Tutup dialog modal terlebih dahulu
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                              }
+
+                              // 3. Tampilkan pesan notifikasi sukses secara global
+                              AppSnackBar.showSuccess(
+                                null,
+                                'Akun Anda berhasil dihapus.',
+                              );
+
+                              // 4. Bersihkan sesi autentikasi dan state lokal
+                              await ref.read(authViewModelProvider.notifier).logout();
+
+                              // 5. Pastikan navigasi langsung menuju /login
+                              if (mounted) {
+                                context.go('/login');
+                              }
+                            } on DioException catch (dioErr) {
+                              if (dialogContext.mounted) {
+                                setDialogState(() {
+                                  _isDeleting = false;
+                                });
+                              }
+                              if (mounted) {
+                                setState(() {
+                                  _isDeleting = false;
+                                });
+                              }
+
+                              final exception = ref.read(dioClientProvider).handleDioError(dioErr);
+                              AppSnackBar.showError(modalContext, exception.message);
+                            } catch (e) {
+                              if (dialogContext.mounted) {
+                                setDialogState(() {
+                                  _isDeleting = false;
+                                });
+                              }
+                              if (mounted) {
+                                setState(() {
+                                  _isDeleting = false;
+                                });
+                              }
+
+                              AppSnackBar.showError(
+                                modalContext,
+                                'Gagal menghapus akun. Silakan coba beberapa saat lagi.',
+                              );
                             }
-                            await ref.read(authViewModelProvider.notifier).logout();
-                            if (!mounted) return;
-                            AppSnackBar.showSuccess(
-                              context,
-                              'Permintaan hapus akun berhasil diproses.',
-                            );
-                            context.go('/login');
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFEF4444),
@@ -148,9 +192,9 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                             ),
                           )
                         : Text(
-                            'Hapus',
+                            'Ya, Hapus Akun',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -167,19 +211,22 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
   Widget _buildMenuItem({
     required String title,
     required IconData icon,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
+    String? badgeText,
     bool showDivider = true,
     Color? iconBgColor,
     Color? iconColor,
     Color? textColor,
   }) {
+    final bool isEnabled = onTap != null && badgeText == null;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: isEnabled ? onTap : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -190,35 +237,75 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: iconBgColor ?? const Color(0xFFF1F5F9),
+                      color: isEnabled
+                          ? (iconBgColor ?? const Color(0xFFF1F5F9))
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       icon,
                       size: 20,
-                      color: iconColor ?? const Color(0xFF475569),
+                      color: isEnabled
+                          ? (iconColor ?? const Color(0xFF475569))
+                          : const Color(0xFF94A3B8),
                     ),
                   ),
                   const SizedBox(width: 14),
 
-                  // Label Menu
+                  // Label Menu + Badge
                   Expanded(
-                    child: Text(
-                      title,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: textColor ?? const Color(0xFF1E293B),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600,
+                              color: isEnabled
+                                  ? (textColor ?? const Color(0xFF1E293B))
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                        if (badgeText != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0xFFFDE68A),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFFB45309),
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
 
-                  // Chevron Icon
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: Color(0xFFCBD5E1),
-                  ),
+                  // Chevron Icon (hanya tampil jika menu aktif)
+                  if (isEnabled)
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22,
+                      color: Color(0xFFCBD5E1),
+                    ),
                 ],
               ),
             ),
@@ -282,15 +369,14 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                       ),
                       child: Column(
                         children: [
-                          // 1. Notification Settings
+                          // 1. Notification Settings (Segera hadir / Soon)
                           _buildMenuItem(
                             title: 'Notification Settings',
                             icon: Icons.notifications_none_rounded,
+                            badgeText: 'Soon',
                             iconBgColor: AppColors.primary.withValues(alpha: 0.08),
                             iconColor: AppColors.primary,
-                            onTap: () {
-                              context.push('/settings/notifications');
-                            },
+                            onTap: null,
                           ),
 
                           // 2. Password Manager

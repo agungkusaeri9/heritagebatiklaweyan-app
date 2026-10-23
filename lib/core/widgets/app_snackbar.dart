@@ -1,14 +1,32 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
+/// Global Key untuk ScaffoldMessengerState agar SnackBar aman dipanggil di mana pun,
+/// bahkan saat transisi rute, dialog ditutup, atau context widget lama sudah deactivated.
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 /// Helper SnackBar dengan desain soft, elegan, dan nyaman di mata
 class AppSnackBar {
   AppSnackBar._();
 
+  static ScaffoldMessengerState? _getMessenger(BuildContext? context) {
+    if (rootScaffoldMessengerKey.currentState != null) {
+      return rootScaffoldMessengerKey.currentState;
+    }
+    if (context != null && context.mounted) {
+      return ScaffoldMessenger.maybeOf(context);
+    }
+    return null;
+  }
+
   /// Menampilkan pesan error dengan background merah pastel yang sangat soft (tidak silau/nyala)
-  static void showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+  static void showError(BuildContext? context, String message) {
+    final messenger = _getMessenger(context);
+    if (messenger == null) return;
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.errorLight,
@@ -57,9 +75,12 @@ class AppSnackBar {
   }
 
   /// Menampilkan pesan sukses dengan background hijau pastel yang soft & elegan
-  static void showSuccess(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+  static void showSuccess(BuildContext? context, String message) {
+    final messenger = _getMessenger(context);
+    if (messenger == null) return;
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.successLight,
@@ -108,9 +129,12 @@ class AppSnackBar {
   }
 
   /// Menampilkan pesan info dengan background biru pastel yang soft & elegan
-  static void showInfo(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+  static void showInfo(BuildContext? context, String message) {
+    final messenger = _getMessenger(context);
+    if (messenger == null) return;
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.infoLight,

@@ -4,6 +4,61 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ---
 
+## [0.5.0-alpha.2] - 2026-10-23
+
+Implementasi halaman Kebijakan & Privasi (Privacy Policy) yang terintegrasi penuh dengan backend API setting, antarmuka modern yang simpel dan bersih (clean typography & bullet points), modal konfirmasi logout interaktif berbasis Bottom Sheet dengan loading state dan proteksi duplikasi, serta badge "Soon" pada menu Payment Methods dan Invites Friends.
+
+### Fitur Baru: Kebijakan & Privasi dan Konfirmasi Logout
+
+#### 1. Halaman Kebijakan & Privasi (Privacy Policy Screen)
+- **Akses Langsung dari Menu Profil**: Menu *"Privacy Policy"* pada daftar pengaturan akun kini mengarahkan langsung ke rute `/privacy-policy`.
+- **Desain Simpel, Rapi & Clean**:
+  - Mengikuti standar antarmuka minimalis tanpa kontainer kartu bertumpuk (*cardless*) dan tanpa icon dekoratif berlebih di judul bagian.
+  - Judul setiap bagian ditampilkan tebal dan tegas (*Plus Jakarta Sans* bold 16px).
+  - Poin-poin klausul diformat rapi dengan dot abu-abu minimalis, subjudul bernomor diformat semi-bold, dan tinggi baris proporsional (`height: 1.6`) untuk kenyamanan membaca.
+- **Tiga Bagian Kebijakan Terstruktur**:
+  1. **Cancellation Policy**: Ditampilkan di bagian atas dan terhubung langsung ke kolom baru `cancellation_policy` dari backend API (dengan fallback cerdas ke klausul pembatalan di policy umum jika belum terisi).
+  2. **Terms & Conditions**: Menampilkan syarat dan ketentuan pemesanan, karakteristik produk batik asli, kebijakan pengembalian & penukaran, serta pengiriman.
+  3. **Privacy Policy**: Menampilkan aturan pengumpulan informasi pribadi, penggunaan data, keamanan data pelanggan, dan persetujuan pengguna.
+- **Integrasi Penuh Backend API**:
+  - Mengambil data dinamis secara real-time via `StoreRemoteDataSource.getPrivacyPolicy()` dari endpoint `/settings/privacy-policy` dan `/settings`.
+  - Tidak menggunakan data hardcode atau teks lorem ipsum sebagai konten utama.
+- **Penanganan Status (State Handling)**:
+  - *Loading State*: Menampilkan animasi garis skeleton placeholder sederhana yang serasi dengan desain clean.
+  - *Error State*: Menampilkan ikon kesalahan dengan pesan informatif dan tombol *"Coba Lagi"* (*retry*).
+  - *Empty State*: Tampilan jika belum ada data kebijakan dari toko dengan tombol *"Muat Ulang"*.
+  - *Pull-to-Refresh*: Pengguna dapat menarik layar ke bawah (`RefreshIndicator`) untuk memperbarui data kebijakan kapan saja.
+
+#### 2. Modal Konfirmasi Logout Bottom Sheet (Logout Confirmation)
+- **Desain Modern Bottom Sheet**:
+  - Menggantikan dialog alert bawaan dengan modal bottom sheet berwarna putih dengan sudut atas melengkung (`Radius.circular(24)`), bilah pegangan abu-abu (*drag handle*) di bagian atas, dan latar belakang meredup (*dimmed semi-transparent overlay* `alpha: 0.5`).
+  - Menampilkan judul terpusat **Logout**, garis pembatas tipis, dan pesan konfirmasi `Are you sure you want to log out?`.
+- **Dua Tombol Aksi**:
+  - **Cancel**: Tombol *outlined* dengan sudut membulat (*pill shape*) yang menutup modal secara aman tanpa memengaruhi sesi login pengguna.
+  - **Yes, Logout**: Tombol utama berwarna cokelat khas Heritage Batik (`AppColors.primary`) yang memicu proses logout.
+- **Loading State & Anti-Duplikasi Request**:
+  - Menampilkan indikator putaran *spinner* putih pada tombol *Yes, Logout* saat proses logout sedang berlangsung.
+  - Kedua tombol dinonaktifkan dan penutupan paksa melalui tombol back atau gestur swipe diblokir (`PopScope(canPop: !_isLoading)`) untuk mencegah *duplicate request*.
+- **Pembersihan Sesi & Navigasi**:
+  - Menjalankan mekanisme logout eksisting dari `AuthViewModel`, membersihkan token/sesi lokal, menutup modal bottom sheet, menampilkan notifikasi sukses via `AppSnackBar`, dan mengarahkan pengguna kembali ke layar Login (`/login`).
+  - Penanganan kegagalan dengan menampilkan pesan kesalahan yang ramah pengguna.
+
+#### 3. Pembaruan Menu Profil (Badge "Soon")
+- **Penanda Menu Segera Hadir**:
+  - Menu *Payment Methods* dan *Invites Friends* pada `ProfileMenuList` kini dilengkapi label badge berlabel *"Soon"* bernuansa amber lembut (`#FEF3C7` / `#B45309`).
+  - Ikon chevron panah disembunyikan dan interaksi tap dinonaktifkan secara otomatis.
+
+#### 4. Model Data & Pengujian Komprehensif
+- **Pembaruan Model**:
+  - Menambahkan properti `cancellationPolicy` pada `StoreSettingModel` lengkap dengan pemetaan `fromJson`, `toMap`, dan `fromMap`.
+  - Pembuatan model parser `PolicySectionModel` untuk ekstraksi terstruktur dari respon backend.
+- **Unit & Widget Testing**:
+  - `policy_section_model_test.dart`: Memverifikasi parsing Cancellation Policy dari kolom khusus, pemisahan klausul, dan penanganan status kosong.
+  - `store_models_test.dart`: Memverifikasi serialisasi JSON dan pemetaan SQLite untuk properti `cancellationPolicy`.
+  - `logout_confirmation_bottom_sheet_test.dart`: Pengujian widget untuk memastikan kemunculan modal, teks konfirmasi, perilaku tombol *Cancel*, dan penutupan modal.
+
+---
+
 ## [0.5.0-alpha.1] - 2026-10-20
 
 Implementasi modul Pengaturan Akun (Settings) yang dapat diakses langsung dari menu Profil, halaman Pengelola Kata Sandi (Password Manager) lengkap dengan checklist validasi keamanan real-time & integrasi backend API, halaman Pengaturan Notifikasi (Notification Settings), dialog konfirmasi Hapus Akun permanen, serta registrasi rute navigasi terintegrasi.
@@ -40,25 +95,36 @@ Implementasi modul Pengaturan Akun (Settings) yang dapat diakses langsung dari m
   - Penanganan respon sukses dengan pesan konfirmasi, pembersihan form otomatis, dan notifikasi SnackBar.
   - Penanganan respon gagal dengan ekstraksi pesan kesalahan spesifik dari server (misalnya: kata sandi lama tidak cocok).
 
-#### 3. Halaman Pengaturan Notifikasi (Notification Settings)
-- **Pilihan Preferensi Notifikasi**:
-  - *Push Notification*: Pengaturan notifikasi umum aplikasi.
-  - *Order Status*: Pemberitahuan perubahan status pemesanan dan nomor resi pengiriman.
-  - *Promos & Discounts*: Informasi diskon, promo eksklusif, dan penawaran batik terbaru.
-  - *Payment Alerts*: Pengingat batas waktu pembayaran dan konfirmasi transaksi.
-- **Sakelar (Switch) Bertema Cokelat**: Desain sakelar toggle yang selaras dengan palet warna cokelat khas Heritage Batik.
+#### 3. Menu Pengaturan Notifikasi (Notification Settings - Segera Hadir)
+- **Badge Indikator "Soon"**: Penambahan lencana berlabel *"Soon"* bernuansa amber lembut pada baris menu Notification Settings di halaman Settings.
+- **Proteksi Non-Aktif**: Menu dinonaktifkan dan tidak dapat diklik (*disabled*) selama fitur masih bertanda *Soon*.
+- **Halaman Pengaturan Notifikasi Tersedia**: Antarmuka preferensi notifikasi (*Push Notification*, *Order Status*, *Promos & Discounts*, *Payment Alerts*) dengan sakelar toggle bertema cokelat Heritage Batik siap diintegrasikan.
 
 #### 4. Fitur Hapus Akun (Delete Account) & Proteksi Keamanan
-- **Dialog Modal Konfirmasi Permanen**: Menampilkan jendela peringatan tegas dengan ikon peringatan berwarna merah (*destructive*).
-- **Pemberitahuan Transparan**: Informasi jelas bahwa tindakan hapus akun akan menghapus profil, riwayat transaksi, poin, dan data alamat secara permanen dari sistem.
-- **Tombol Aksi Bersyarat**: Opsi pembatalan (*Batal*) dan tombol eksekusi (*Hapus*) yang dilengkapi status loading pencegah klik ganda serta pembersihan sesi (logout otomatis) jika permintaan diproses.
+- **Dialog Modal Konfirmasi Tegas**: Menampilkan pertanyaan konfirmasi *"Apakah Anda benar-benar yakin ingin menghapus akun?"* dengan ikon peringatan merah (*destructive*).
+- **Pemberitahuan Transparan**: Penjelasan bahwa penghapusan bersifat permanen dan seluruh data profil, alamat, keranjang, serta riwayat pesanan akan dinonaktifkan dari sistem.
+- **Integrasi Penuh Backend API**: Terhubung langsung ke endpoint `DELETE /user/account` melalui `DioClient`.
+- **Penanganan Sesi & Umpan Balik**: Dilengkapi status indikator putaran loading, penanganan pesan error dari server, pembersihan sesi token (*logout*), dan pengalihan otomatis ke layar Sign In (`/login`).
 
-#### 5. Registrasi Rute & Navigasi Terpusat
+#### 5. Fitur Baru: Pusat Bantuan (Help Center) & Desain Contact Us Accordion
+- **Hierarki Layout Terstruktur**: Tata letak persis mengikuti desain referensi: **Header → Search Bar → Tabs → Content**.
+- **Search Bar Global di Atas Tabs**: Terletak sebelum tab selector, dengan placeholder dinamis dan tombol hapus cepat (`X`) yang berfungsi memfilter FAQ maupun saluran Contact Us secara real-time.
+- **Tab FAQ & Contact Us Segmented**: Kontrol tab pill modern dengan animasi perpindahan mulus dan indikator tab aktif beraksen cokelat sogan.
+- **Accordion Kontak Lengkap (6 Saluran Resmi)**:
+  - Tab *Contact Us* menampilkan 6 item kontak: *Customer Service*, *WhatsApp*, *Website*, *Facebook*, *Twitter*, dan *Instagram*.
+  - Setiap saluran kontak disajikan dalam bentuk accordion kartu mandiri dengan icon monokrom netral (tanpa warna mencolok), animasi putar chevron (`AnimatedRotation`), deskripsi operasional, tombol salin (*one-tap copy*) khusus untuk No. Telepon Customer Service, serta tombol *"Kunjungi"* yang langsung membuka aplikasi masing-masing (WhatsApp ke aplikasi WhatsApp/WhatsApp Business, Facebook ke aplikasi Facebook, Twitter ke aplikasi Twitter/X, Instagram ke aplikasi Instagram, dan Website ke browser default) tanpa menyalin ke papan klip.
+  - Seluruh accordion (termasuk Customer Service dan WhatsApp) berada dalam kondisi tertutup (*collapsed*) secara default saat halaman dimuat, dan dapat dibuka atau ditutup secara independen oleh pengguna.
+- **Integrasi Backend API**: Terhubung ke endpoint `/api/v1/faqs` untuk daftar FAQ dan `/api/v1/settings` untuk informasi kontak resmi toko (`StoreSettingModel`).
+- **Kategori FAQ & Filter Chips**: Horizontal filter chips (*All*, *Services*, *General*, *Account*, dan kategori dinamis dari respon API) yang tersinkronisasi dengan kata kunci pencarian.
+- **Penanganan Status Komprehensif**: Mendukung animasi *shimmer skeleton loading*, pesan kesalahan dengan tombol coba lagi (*retry*), status kosong (*empty state*) dengan tombol reset pencarian, serta *pull-to-refresh*.
+
+#### 6. Registrasi Rute & Navigasi Terpusat
 - Pendaftaran rute baru pada `AppRouter` (`lib/core/router/app_router.dart`):
   - `/settings`: Mengarah ke `SettingsView`.
   - `/settings/notifications`: Mengarah ke `NotificationSettingsView`.
   - `/settings/password`: Mengarah ke `PasswordManagerView`.
-- Pembaruan model `ProfileMenuItemModel` dan widget `ProfileMenuList` agar item menu Settings terhubung langsung ke rute `/settings`.
+  - `/help-center`: Mengarah ke `HelpCenterView`.
+- Pembaruan model `ProfileMenuItemModel` dan widget `ProfileMenuList` agar item menu Settings dan Help Center terhubung langsung ke rute masing-masing.
 
 ---
 

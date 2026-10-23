@@ -14,6 +14,7 @@ class StoreSettingModel {
   final String? address;
   final String? privacyPolicy;
   final String? policy;
+  final String? cancellationPolicy;
   final String? updatedAt;
 
   const StoreSettingModel({
@@ -31,6 +32,7 @@ class StoreSettingModel {
     this.address,
     this.privacyPolicy,
     this.policy,
+    this.cancellationPolicy,
     this.updatedAt,
   });
 
@@ -67,6 +69,8 @@ class StoreSettingModel {
       privacyPolicy:
           policies?['privacy_policy'] as String? ?? json['privacy_policy'] as String?,
       policy: policies?['policy'] as String? ?? json['policy'] as String?,
+      cancellationPolicy: policies?['cancellation_policy'] as String? ??
+          json['cancellation_policy'] as String?,
       updatedAt: json['updated_at'] as String?,
     );
   }
@@ -88,6 +92,7 @@ class StoreSettingModel {
       'address': address,
       'privacy_policy': privacyPolicy,
       'policy': policy,
+      'cancellation_policy': cancellationPolicy,
       'updated_at': updatedAt,
     };
   }
@@ -109,6 +114,7 @@ class StoreSettingModel {
       address: map['address'] as String?,
       privacyPolicy: map['privacy_policy'] as String?,
       policy: map['policy'] as String?,
+      cancellationPolicy: map['cancellation_policy'] as String?,
       updatedAt: map['updated_at'] as String?,
     );
   }

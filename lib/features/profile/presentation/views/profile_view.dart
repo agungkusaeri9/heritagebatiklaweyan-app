@@ -88,10 +88,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                         ProfileMenuList(
                           onLogout: () async {
                             await ref.read(authViewModelProvider.notifier).logout();
-                            if (context.mounted) {
-                              AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
-                              context.go('/login');
-                            }
                           },
                         ),
                       ],

@@ -15,8 +15,10 @@ import '../../features/location/presentation/viewmodels/location_providers.dart'
 import '../../features/location/presentation/views/location_selection_view.dart';
 import '../../features/onboarding/presentation/views/onboarding_view.dart';
 import '../../features/onboarding/presentation/views/welcome_view.dart';
+import '../../features/profile/presentation/views/help_center_view.dart';
 import '../../features/profile/presentation/views/notification_settings_view.dart';
 import '../../features/profile/presentation/views/password_manager_view.dart';
+import '../../features/profile/presentation/views/privacy_policy_view.dart';
 import '../../features/profile/presentation/views/profile_view.dart';
 import '../../features/profile/presentation/views/settings_view.dart';
 import '../../features/splash/presentation/views/splash_view.dart';
@@ -152,6 +154,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings/password',
         name: 'password-manager',
         builder: (context, state) => const PasswordManagerView(),
+      ),
+      GoRoute(
+        path: '/help-center',
+        name: 'help-center',
+        builder: (context, state) => const HelpCenterView(),
+      ),
+      GoRoute(
+        path: '/privacy-policy',
+        name: 'privacy-policy',
+        builder: (context, state) => const PrivacyPolicyView(),
       ),
     ],
     redirect: (context, state) {
