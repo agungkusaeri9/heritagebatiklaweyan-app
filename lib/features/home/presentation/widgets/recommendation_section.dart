@@ -9,17 +9,23 @@ import 'product_card.dart';
 class RecommendationSection extends StatelessWidget {
   final List<ProductItem> products;
   final ValueChanged<ProductItem>? onProductTap;
+  final ValueChanged<ProductItem>? onAddToCart;
   final VoidCallback? onSeeAllTap;
 
   const RecommendationSection({
     super.key,
     this.products = HomeDummyData.recommendations,
     this.onProductTap,
+    this.onAddToCart,
     this.onSeeAllTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (products.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -81,6 +87,7 @@ class RecommendationSection extends StatelessWidget {
               return ProductCard(
                 product: product,
                 onProductTap: onProductTap,
+                onAddToCart: onAddToCart != null ? () => onAddToCart!(product) : null,
               );
             },
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -69,14 +70,7 @@ class ProfileInformation extends StatelessWidget {
                   child: InkWell(
                     onTap: onEditTap ??
                         () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Fitur ubah foto profil (Tahap integrasi berikutnya)',
-                              ),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
+                          context.push('/your-profile');
                         },
                     borderRadius: BorderRadius.circular(20),
                     child: Container(

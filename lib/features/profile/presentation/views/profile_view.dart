@@ -19,15 +19,15 @@ class ProfileView extends ConsumerStatefulWidget {
 }
 
 class _ProfileViewState extends ConsumerState<ProfileView> {
-  // Tab Account aktif pada index 4 sesuai spesifikasi
-  int _currentTabIndex = 4;
+  // Tab Account aktif pada index 3 sesuai 4 menu baru (Home, Wishlist, History, Account)
+  int _currentTabIndex = 3;
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
 
-    // Nama dan Avatar Pengguna (dengan dummy fallback terstandarisasi)
+    // Nama dan Avatar Pengguna (dengan fallback terstandarisasi)
     final String displayName =
         (user?.name != null && user!.name.trim().isNotEmpty)
             ? user.name
@@ -58,16 +58,16 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
             // 2. Konten Profil yang Scrollable
             Expanded(
               child: IndexedStack(
-                index: _currentTabIndex == 4 ? 0 : 1,
+                index: _currentTabIndex == 3 ? 0 : 1,
                 children: [
-                  // Tab 4 (Aktif): Konten Halaman Profile Utama
+                  // Tab 3 (Aktif): Konten Halaman Profile Utama
                   SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.only(
                       left: 20,
                       right: 20,
                       top: 10,
-                      bottom: 110, // Ruang bawah agar tidak tertutup floating rounded pill bar
+                      bottom: 24,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -78,7 +78,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                           subtitle: user?.email,
                           avatarUrl: avatarUrl,
                           onEditTap: () {
-                            context.push('/complete-profile');
+                            context.push('/your-profile');
                           },
                         ),
 
@@ -88,13 +88,16 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                         ProfileMenuList(
                           onLogout: () async {
                             await ref.read(authViewModelProvider.notifier).logout();
+                            if (!context.mounted) return;
+                            AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
+                            context.go('/login');
                           },
                         ),
                       ],
                     ),
                   ),
 
-                  // Placeholder Tab Lainnya (Home, Bag, Wishlist, Messages)
+                  // Placeholder Tab Lainnya (Home, Wishlist, History)
                   _buildPlaceholderTab(),
                 ],
               ),
@@ -103,13 +106,18 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
         ),
       ),
 
-      // 3. Bottom Navigation Berbentuk Rounded Pill Melayang (5 Menu)
+      // 3. Bottom Navigation Bersih & Minimalis (4 Menu)
       bottomNavigationBar: ProfileBottomNavigation(
         currentIndex: _currentTabIndex,
         onTabSelected: (index) {
           if (index == 0) {
             // Kembali ke Home
             context.go('/dashboard');
+            return;
+          }
+          if (index == 2) {
+            // Buka My Orders
+            context.push('/orders');
             return;
           }
 
@@ -131,16 +139,16 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
         tabIcon = Icons.home_rounded;
         break;
       case 1:
-        tabTitle = 'Bag / Keranjang Belanja';
-        tabIcon = Icons.shopping_bag_rounded;
-        break;
-      case 2:
         tabTitle = 'Wishlist Motif Favorit';
         tabIcon = Icons.favorite_rounded;
         break;
+      case 2:
+        tabTitle = 'Riwayat Transaksi';
+        tabIcon = Icons.receipt_long_rounded;
+        break;
       case 3:
-        tabTitle = 'Messages & Pesan Toko';
-        tabIcon = Icons.chat_bubble_rounded;
+        tabTitle = 'Account Pengguna';
+        tabIcon = Icons.person_rounded;
         break;
     }
 
@@ -163,7 +171,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 color: AppColors.primary,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             Text(
               tabTitle,
               textAlign: TextAlign.center,
@@ -175,18 +183,19 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Fitur ini sedang dalam tahap pengembangan antarmuka.',
+              'Fitur ini sedang dalam pengembangan aktif dan akan segera hadir untuk Anda.',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
+                fontSize: 13.5,
                 color: const Color(0xFF64748B),
+                height: 1.45,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  _currentTabIndex = 4; // Kembali ke tab Profile
+                  _currentTabIndex = 3;
                 });
               },
               style: ElevatedButton.styleFrom(
@@ -196,11 +205,11 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 22,
-                  vertical: 10,
+                  horizontal: 24,
+                  vertical: 12,
                 ),
               ),
-              child: const Text('Kembali ke Profile'),
+              child: const Text('Kembali ke Akun'),
             ),
           ],
         ),

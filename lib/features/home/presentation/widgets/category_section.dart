@@ -4,31 +4,20 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/models/home_dummy_data.dart';
 
 /// Reusable Widget: CategorySection
-/// Menampilkan deretan kategori batik (Sarung, Kain, Tunik, Anak-Anak, All) dengan interaksi lokal
-class CategorySection extends StatefulWidget {
+/// Menampilkan deretan kategori batik dari backend dengan scroll horizontal
+class CategorySection extends StatelessWidget {
   final List<ProductCategoryItem> categories;
+  final String selectedCategoryId;
   final ValueChanged<ProductCategoryItem>? onCategorySelected;
-  final String? initialSelectedId;
+  final VoidCallback? onSeeAllTap;
 
   const CategorySection({
     super.key,
     this.categories = HomeDummyData.categories,
+    this.selectedCategoryId = 'all',
     this.onCategorySelected,
-    this.initialSelectedId = 'all',
+    this.onSeeAllTap,
   });
-
-  @override
-  State<CategorySection> createState() => _CategorySectionState();
-}
-
-class _CategorySectionState extends State<CategorySection> {
-  late String _selectedCategoryId;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedCategoryId = widget.initialSelectedId ?? 'all';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,11 +40,16 @@ class _CategorySectionState extends State<CategorySection> {
                 ),
               ),
               InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedCategoryId = 'all';
-                  });
-                },
+                onTap: onSeeAllTap ??
+                    () {
+                      if (categories.isNotEmpty && onCategorySelected != null) {
+                        final allCategory = categories.firstWhere(
+                          (c) => c.id == 'all',
+                          orElse: () => categories.first,
+                        );
+                        onCategorySelected!(allCategory);
+                      }
+                    },
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -77,16 +71,16 @@ class _CategorySectionState extends State<CategorySection> {
 
         // 2. Daftar Kategori Horizontal
         SizedBox(
-          height: 92,
+          height: 94,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            itemCount: widget.categories.length,
+            itemCount: categories.length,
             separatorBuilder: (context, index) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
-              final cat = widget.categories[index];
-              final isSelected = cat.id == _selectedCategoryId;
+              final cat = categories[index];
+              final isSelected = cat.id == selectedCategoryId;
 
               return _buildCategoryItem(cat, isSelected);
             },
@@ -97,19 +91,18 @@ class _CategorySectionState extends State<CategorySection> {
   }
 
   Widget _buildCategoryItem(ProductCategoryItem item, bool isSelected) {
+    final hasImage = item.imageUrl != null && item.imageUrl!.isNotEmpty;
+
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedCategoryId = item.id;
-        });
-        if (widget.onCategorySelected != null) {
-          widget.onCategorySelected!(item);
+        if (onCategorySelected != null) {
+          onCategorySelected!(item);
         }
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Lingkaran Icon Kategori
+          // Lingkaran Icon / Gambar Kategori
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: 56,
@@ -130,22 +123,42 @@ class _CategorySectionState extends State<CategorySection> {
                   ),
               ],
             ),
-            child: Icon(
-              item.icon,
-              size: 24,
-              color: isSelected ? Colors.white : const Color(0xFF475569),
+            child: ClipOval(
+              child: hasImage
+                  ? Image.network(
+                      item.imageUrl!,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        item.icon,
+                        size: 24,
+                        color: isSelected ? Colors.white : const Color(0xFF475569),
+                      ),
+                    )
+                  : Icon(
+                      item.icon,
+                      size: 24,
+                      color: isSelected ? Colors.white : const Color(0xFF475569),
+                    ),
             ),
           ),
 
           const SizedBox(height: 8),
 
           // Label Kategori
-          Text(
-            item.name,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? AppColors.primary : const Color(0xFF334155),
+          SizedBox(
+            width: 68,
+            child: Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppColors.primary : const Color(0xFF334155),
+              ),
             ),
           ),
         ],

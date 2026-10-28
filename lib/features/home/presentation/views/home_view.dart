@@ -5,13 +5,21 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
+import '../../../cart/presentation/viewmodels/cart_providers.dart';
+import '../../../checkout/presentation/views/order_list_view.dart';
 import '../../../profile/presentation/widgets/profile_header.dart';
 import '../../../profile/presentation/widgets/profile_information.dart';
 import '../../../profile/presentation/widgets/profile_menu_list.dart';
+import '../../data/models/home_dummy_data.dart';
+import '../../../search/data/models/product_filter_model.dart';
+import '../../../search/presentation/viewmodels/search_providers.dart';
+import '../viewmodels/home_providers.dart';
+import '../widgets/best_seller_section.dart';
 import '../widgets/category_section.dart';
 import '../widgets/home_bottom_navigation.dart';
 import '../widgets/home_header.dart';
 import '../widgets/home_search_bar.dart';
+import '../widgets/other_products_section.dart';
 import '../widgets/promo_carousel.dart';
 import '../widgets/recommendation_section.dart';
 import '../widgets/store_info_card.dart';
@@ -32,17 +40,80 @@ class HomeView extends ConsumerStatefulWidget {
 class _HomeViewState extends ConsumerState<HomeView> {
   late int _currentTabIndex;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _homeScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
+    _homeScrollController.addListener(_onHomeScroll);
+  }
+
+  void _onHomeScroll() {
+    if (_homeScrollController.hasClients) {
+      final maxScroll = _homeScrollController.position.maxScrollExtent;
+      final currentScroll = _homeScrollController.position.pixels;
+      // Trigger infinite scroll saat mendekati batas bawah (250px sebelum batas akhir)
+      if (currentScroll >= maxScroll - 250) {
+        ref.read(homeViewModelProvider.notifier).loadMoreOtherProducts();
+      }
+    }
   }
 
   @override
   void dispose() {
+    _homeScrollController.removeListener(_onHomeScroll);
+    _homeScrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Menangani aksi penambahan produk ke keranjang belanja
+  Future<void> _handleAddToCart(ProductItem product) async {
+    final productId = int.tryParse(product.id) ?? 0;
+    if (productId <= 0) {
+      AppSnackBar.showError(context, 'ID produk tidak valid.');
+      return;
+    }
+
+    final success = await ref.read(cartViewModelProvider.notifier).addToCart(
+      productId,
+      quantity: 1,
+      onError: (message) {
+        if (!mounted) return;
+        AppSnackBar.showError(context, message);
+      },
+    );
+
+    if (success && mounted) {
+      AppSnackBar.showSuccess(
+        context,
+        '${product.name} berhasil ditambahkan ke keranjang.',
+      );
+    }
+  }
+
+  /// Menangani klik banner promosi
+  void _handleBannerTap(PromoBannerItem banner) {
+    if (banner.targetType == 'product' && banner.productId != null) {
+      context.push('/product/${banner.productId}');
+    } else if (banner.targetType == 'category' && banner.categoryId != null) {
+      final homeState = ref.read(homeViewModelProvider);
+      final category = homeState.categories.firstWhere(
+        (c) => c.id == banner.categoryId.toString(),
+        orElse: () => ProductCategoryItem(
+          id: banner.categoryId.toString(),
+          name: banner.title,
+        ),
+      );
+      context.push('/category-products', extra: category);
+    } else if (banner.targetType == 'url' &&
+        banner.targetUrl != null &&
+        banner.targetUrl!.isNotEmpty) {
+      AppSnackBar.showSuccess(context, 'Membuka promo: ${banner.title}');
+    } else {
+      AppSnackBar.showSuccess(context, 'Promo: ${banner.title}');
+    }
   }
 
   @override
@@ -52,45 +123,24 @@ class _HomeViewState extends ConsumerState<HomeView> {
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
-          index: _currentTabIndex,
+          index: _currentTabIndex.clamp(0, 3),
           children: [
-            // Tab 0: Home Page Utama
+            // Tab 0: Home
             _buildHomeContent(),
 
-            // Tab 1: Bag / Keranjang Belanja (Placeholder)
-            _buildPlaceholderTab(
-              icon: Icons.shopping_bag_outlined,
-              title: 'Keranjang Belanja Masih Kosong',
-              subtitle:
-                  'Pilih berbagai busana dan kain batik Laweyan terbaik untuk dimasukkan ke dalam keranjang.',
-              buttonText: 'Jelajahi Koleksi Batik',
-            ),
+            // Tab 1: Wishlist
+            _buildWishlistTab(),
 
-            // Tab 2: Wishlist Motif Favorit (Placeholder)
-            _buildPlaceholderTab(
-              icon: Icons.favorite_outline_rounded,
-              title: 'Wishlist Anda Masih Kosong',
-              subtitle:
-                  'Simpan motif batik favorit Anda di sini untuk mempermudah pembelian berikutnya.',
-              buttonText: 'Cari Motif Favorit',
-            ),
+            // Tab 2: History (Riwayat Transaksi & Pesanan)
+            _buildHistoryTab(),
 
-            // Tab 3: Messages & Chat Toko (Placeholder)
-            _buildPlaceholderTab(
-              icon: Icons.chat_bubble_outline_rounded,
-              title: 'Belum Ada Pesan Masuk',
-              subtitle:
-                  'Obrolan dengan pengrajin dan layanan pelanggan Heritage Batik akan ditampilkan di sini.',
-              buttonText: 'Hubungi Customer Service',
-            ),
-
-            // Tab 4: Account Page (Profile & 8 Menu Pengaturan Akun)
+            // Tab 3: Account (Profil & Pengaturan Akun)
             _buildAccountTab(),
           ],
         ),
       ),
       bottomNavigationBar: HomeBottomNavigation(
-        currentIndex: _currentTabIndex,
+        currentIndex: _currentTabIndex.clamp(0, 3),
         onTabSelected: (index) {
           setState(() {
             _currentTabIndex = index;
@@ -100,17 +150,21 @@ class _HomeViewState extends ConsumerState<HomeView> {
     );
   }
 
-  /// Konten Utama Tab Home (Urutan sesuai Scope & Acceptance Criteria)
+  /// Konten Utama Tab Home (Integrasi Kategori, Rekomendasi, Terlaris, & Infinite Scroll Produk Lainnya)
   Widget _buildHomeContent() {
+    final homeState = ref.watch(homeViewModelProvider);
+    final searchState = ref.watch(searchViewModelProvider);
+
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: () async {
-        await Future.delayed(const Duration(milliseconds: 600));
+        await ref.read(homeViewModelProvider.notifier).initHome(isRefresh: true);
         if (mounted) {
           AppSnackBar.showSuccess(context, 'Halaman beranda diperbarui.');
         }
       },
       child: SingleChildScrollView(
+        controller: _homeScrollController,
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
@@ -120,15 +174,44 @@ class _HomeViewState extends ConsumerState<HomeView> {
             // 1. Header (Alamat Pengiriman, Dropdown, Cart & Notification Badge)
             const HomeHeader(),
 
-            // 2. Search Bar dengan Icon Filter
+            // 2. Search Bar dengan Icon Filter (Navigasi ke Search Screen & Filter Screen)
             HomeSearchBar(
               controller: _searchController,
+              readOnly: true,
+              activeFilterCount: searchState.activeFilterCount,
+              onTap: () {
+                context.push('/search');
+              },
+              onFilterTap: () async {
+                final result = await context.push<ProductFilter?>(
+                  '/filter',
+                  extra: searchState.filter,
+                );
+                if (result != null) {
+                  ref.read(searchViewModelProvider.notifier).applyFilter(result);
+                  if (mounted) {
+                    context.push('/search');
+                  }
+                }
+              },
             ),
 
             const SizedBox(height: 6),
 
             // 3. Banner Promo Carousel dengan Indikator Dots
-            const PromoCarousel(),
+            PromoCarousel(
+              banners: homeState.banners.isNotEmpty
+                  ? homeState.banners
+                  : HomeDummyData.banners,
+              onBannerTap: (index) {
+                final banners = homeState.banners.isNotEmpty
+                    ? homeState.banners
+                    : HomeDummyData.banners;
+                if (index < banners.length) {
+                  _handleBannerTap(banners[index]);
+                }
+              },
+            ),
 
             const SizedBox(height: 10),
 
@@ -137,23 +220,76 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
             const SizedBox(height: 12),
 
-            // 5. Category Section (Sarung, Kain, Tunik, Anak-Anak, All)
-            const CategorySection(),
+            // 5. Category Section (Integrasi Backend & Filter Produk)
+            CategorySection(
+              categories: homeState.categories,
+              selectedCategoryId: homeState.selectedCategoryId,
+              onCategorySelected: (cat) {
+                context.push('/category-products', extra: cat);
+              },
+              onSeeAllTap: () {
+                context.push('/categories');
+              },
+            ),
 
             const SizedBox(height: 14),
 
-            // 6. Recommendation Section (Daftar Produk Scroll Horizontal)
-            const RecommendationSection(),
+            // 6. Recommendation Section (Daftar Produk Rekomendasi Scroll Horizontal)
+            RecommendationSection(
+              products: homeState.recommendations,
+              onAddToCart: _handleAddToCart,
+            ),
 
-            // Ruang bawah agar rekomendasi tidak tertutup oleh floating pill bar
-            const SizedBox(height: 110),
+            const SizedBox(height: 16),
+
+            // 7. Best Seller Section (Daftar Produk Terlaris Scroll Horizontal)
+            BestSellerSection(
+              products: homeState.bestSellers,
+              onAddToCart: _handleAddToCart,
+            ),
+
+            const SizedBox(height: 16),
+
+            // 8. Other Products Section (Semua Produk dengan Paginate 10 & Infinite Scroll)
+            OtherProductsSection(
+              products: homeState.otherProducts,
+              isLoadingMore: homeState.isLoadingMore,
+              hasMore: homeState.hasMoreOtherProducts,
+              onAddToCart: _handleAddToCart,
+            ),
+
+            // Ruang bawah agar konten tidak menempel ke bilah navigasi bawah
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  /// Tampilan Tab Placeholder yang Rapi untuk Bag, Wishlist, & Messages
+  /// Tampilan Tab Wishlist (Koleksi Favorit Pengguna)
+  Widget _buildWishlistTab() {
+    return _buildPlaceholderTab(
+      icon: Icons.favorite_outline_rounded,
+      title: 'Wishlist Anda Masih Kosong',
+      subtitle:
+          'Simpan motif batik favorit Anda di sini untuk mempermudah pembelian berikutnya.',
+      buttonText: 'Cari Motif Favorit',
+    );
+  }
+
+  /// Tampilan Tab History (Riwayat Pesanan & Transaksi - My Orders)
+  Widget _buildHistoryTab() {
+    return OrderListView(
+      embedded: true,
+      onBackTap: () {
+        setState(() {
+          _currentTabIndex = 0;
+        });
+      },
+    );
+  }
+
+  /// Tampilan Tab Placeholder yang Rapi untuk Wishlist & History
   Widget _buildPlaceholderTab({
     required IconData icon,
     required String title,
@@ -203,7 +339,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  _currentTabIndex = 0;
+                  _currentTabIndex = 0; // Kembali ke Tab Home
                 });
               },
               style: ElevatedButton.styleFrom(
@@ -231,12 +367,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
     final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
 
-    final String displayName =
-        (user?.name != null && user!.name!.trim().isNotEmpty)
-            ? user.name!
-            : (user?.username != null && user!.username!.trim().isNotEmpty)
-                ? user.username!
-                : 'Agung Kusaeri';
+    final String displayName = (user?.name != null && user!.name.trim().isNotEmpty)
+        ? user.name
+        : (user?.username != null && user!.username.trim().isNotEmpty)
+            ? user.username
+            : 'Agung Kusaeri';
 
     final String? avatarUrl = user?.avatarUrl;
 
@@ -261,7 +396,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
               left: 20,
               right: 20,
               top: 10,
-              bottom: 110, // Ruang bawah agar tidak tertutup floating rounded pill bar
+              bottom: 24,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -282,10 +417,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 ProfileMenuList(
                   onLogout: () async {
                     await ref.read(authViewModelProvider.notifier).logout();
-                    if (context.mounted) {
-                      AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
-                      context.go('/login');
-                    }
+                    if (!mounted) return;
+                    AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
+                    context.go('/login');
                   },
                 ),
               ],

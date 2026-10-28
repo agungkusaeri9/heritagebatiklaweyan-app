@@ -1,3 +1,4 @@
+import '../../../../core/constants/api_constants.dart';
 import '../../domain/entities/user_entity.dart';
 
 /// DTO Model Pengguna dengan serialization JSON dan mapping ke Entity
@@ -15,7 +16,31 @@ class UserModel extends UserEntity {
     required super.createdAt,
   });
 
+  /// Normalisasi URL avatar dari backend (mengubah localhost/127.0.0.1 atau path relatif ke host server)
+  static String? normalizeAvatarUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.trim().isEmpty) return null;
+    var trimmed = rawUrl.trim();
+    if (trimmed.startsWith('http://127.0.0.1:8000') ||
+        trimmed.startsWith('http://localhost:8000')) {
+      final uri = Uri.tryParse(trimmed);
+      if (uri != null) {
+        return '${ApiConstants.serverUrl}${uri.path}';
+      }
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      return '${ApiConstants.serverUrl}$trimmed';
+    }
+    return '${ApiConstants.serverUrl}/$trimmed';
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final rawAvatar = json['avatar_url']?.toString() ??
+        json['profile_photo_url']?.toString() ??
+        json['avatar']?.toString();
+
     return UserModel(
       id: json['id'] != null
           ? json['id'].toString()
@@ -31,9 +56,7 @@ class UserModel extends UserEntity {
       phone: json['phone']?.toString(),
       gender: json['gender']?.toString(),
       role: json['role']?.toString() ?? 'customer',
-      avatarUrl: json['avatar_url']?.toString() ??
-          json['profile_photo_url']?.toString() ??
-          json['avatar']?.toString(),
+      avatarUrl: normalizeAvatarUrl(rawAvatar),
       isProfileCompleteExplicit: json['is_profile_complete'] is bool
           ? json['is_profile_complete'] as bool
           : null,

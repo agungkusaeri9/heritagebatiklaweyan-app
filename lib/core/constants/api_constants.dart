@@ -62,7 +62,49 @@ class ApiConstants {
   static const String privacyPolicy = '/settings/privacy-policy';
   static const String paymentMethods = '/payment-methods';
   static const String faqs = '/faqs';
+  static const String categories = '/categories';
+  static const String banners = '/banners';
+  static const String products = '/products';
+  static const String productRecommendations = '/products/recommendations';
+  static const String productBestSellers = '/products/best-sellers';
+  static String productDetail(dynamic idOrSlug) => '/products/$idOrSlug';
 
-  // User Location Endpoint
+  // User Location & Addresses Endpoints
   static const String userLocation = '/user/location';
+  static const String addresses = '/addresses';
+  static String addressDetail(int id) => '/addresses/$id';
+  static String addressPrimary(int id) => '/addresses/$id/primary';
+
+  // Master Location Endpoints
+  static const String provinces = '/locations/provinces';
+  static String cities({int? provinceId}) =>
+      provinceId != null ? '/locations/cities?province_id=$provinceId' : '/locations/cities';
+  static String subdistricts({int? cityId}) =>
+      cityId != null ? '/locations/subdistricts?city_id=$cityId' : '/locations/subdistricts';
+
+  // Shipping & Couriers Endpoints
+  static const String couriers = '/couriers';
+  static const String shippingTypes = '/shipping-types';
+  static const String checkShippingCost = '/shipping/cost';
+  static const String checkOngkir = '/check-ongkir';
+
+  // Notifications Endpoints
+  static const String notifications = '/notifications';
+  static const String notificationsMarkRead = '/notifications/mark-read';
+  static const String notificationsMarkAllRead = '/notifications/mark-all-read';
+  static String notificationMarkSingleRead(int id) => '/notifications/$id/mark-read';
+
+  // Cart Endpoints
+  static const String cart = '/cart';
+  static String cartItem(int id) => '/cart/$id';
+
+  // Checkout Endpoints
+  static const String checkout = '/checkout';
+  static const String checkoutPreview = '/checkout/preview';
+
+  // Orders Endpoints
+  static const String orders = '/orders';
+  static String orderDetail(dynamic idOrOrderNumber) => '/orders/$idOrOrderNumber';
+  static String uploadPaymentProof(dynamic idOrOrderNumber) => '/orders/$idOrOrderNumber/payment-proof';
 }
+

@@ -10,17 +10,36 @@ import '../../features/auth/presentation/views/register_view.dart';
 import '../../features/auth/presentation/views/reset_password_view.dart';
 import '../../features/auth/presentation/views/verify_otp_view.dart';
 import '../../features/dashboard/presentation/views/permissions_view.dart';
+import '../../features/home/data/models/home_dummy_data.dart';
+import '../../features/home/presentation/views/category_list_view.dart';
+import '../../features/home/presentation/views/category_products_view.dart';
 import '../../features/home/presentation/views/home_view.dart';
 import '../../features/location/presentation/viewmodels/location_providers.dart';
 import '../../features/location/presentation/views/location_selection_view.dart';
 import '../../features/onboarding/presentation/views/onboarding_view.dart';
 import '../../features/onboarding/presentation/views/welcome_view.dart';
+import '../../features/cart/presentation/views/cart_view.dart';
+import '../../features/checkout/data/models/checkout_result_model.dart';
+import '../../features/checkout/presentation/viewmodels/order_list_state.dart';
+import '../../features/checkout/presentation/views/checkout_view.dart';
+import '../../features/checkout/presentation/views/order_detail_view.dart';
+import '../../features/checkout/presentation/views/order_list_view.dart';
+import '../../features/checkout/presentation/views/payment_success_view.dart';
+import '../../features/checkout/presentation/views/shipping_address_selection_view.dart';
+import '../../features/checkout/presentation/views/shipping_type_selection_view.dart';
+import '../../features/checkout/presentation/views/track_order_view.dart';
+import '../../features/checkout/presentation/views/upload_payment_proof_view.dart';
+import '../../features/notification/presentation/views/notification_view.dart';
 import '../../features/profile/presentation/views/help_center_view.dart';
 import '../../features/profile/presentation/views/notification_settings_view.dart';
 import '../../features/profile/presentation/views/password_manager_view.dart';
 import '../../features/profile/presentation/views/privacy_policy_view.dart';
 import '../../features/profile/presentation/views/profile_view.dart';
 import '../../features/profile/presentation/views/settings_view.dart';
+import '../../features/profile/presentation/views/your_profile_view.dart';
+import '../../features/search/data/models/product_filter_model.dart';
+import '../../features/search/presentation/views/filter_view.dart';
+import '../../features/search/presentation/views/search_view.dart';
 import '../../features/splash/presentation/views/splash_view.dart';
 import '../storage/storage_providers.dart';
 
@@ -121,6 +140,42 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HomeView(),
       ),
       GoRoute(
+        path: '/search',
+        name: 'search',
+        builder: (context, state) {
+          final query = state.uri.queryParameters['q'] ??
+              (state.extra is String ? state.extra as String : null);
+          return SearchView(initialQuery: query);
+        },
+      ),
+      GoRoute(
+        path: '/filter',
+        name: 'filter',
+        builder: (context, state) => FilterView(
+          initialFilter: state.extra as ProductFilter?,
+        ),
+      ),
+      GoRoute(
+        path: '/categories',
+        name: 'categories',
+        builder: (context, state) => const CategoryListView(),
+      ),
+      GoRoute(
+        path: '/category-products',
+        name: 'category-products',
+        builder: (context, state) {
+          final category = state.extra is ProductCategoryItem
+              ? state.extra as ProductCategoryItem
+              : ProductCategoryItem(
+                  id: state.uri.queryParameters['id'] ?? 'all',
+                  name: state.uri.queryParameters['name'] ?? 'Kategori Batik',
+                  slug: state.uri.queryParameters['slug'] ?? '',
+                  description: state.uri.queryParameters['description'] ?? '',
+                );
+          return CategoryProductsView(category: category);
+        },
+      ),
+      GoRoute(
         path: '/permissions',
         name: 'permissions',
         builder: (context, state) => const PermissionsView(),
@@ -139,6 +194,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/account',
         name: 'account',
         builder: (context, state) => const ProfileView(),
+      ),
+      GoRoute(
+        path: '/your-profile',
+        name: 'your-profile',
+        builder: (context, state) => const YourProfileView(),
       ),
       GoRoute(
         path: '/settings',
@@ -164,6 +224,99 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/privacy-policy',
         name: 'privacy-policy',
         builder: (context, state) => const PrivacyPolicyView(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationView(),
+      ),
+      GoRoute(
+        path: '/cart',
+        name: 'cart',
+        builder: (context, state) => const CartView(),
+      ),
+      GoRoute(
+        path: '/checkout',
+        name: 'checkout',
+        builder: (context, state) => const CheckoutView(),
+        routes: [
+          GoRoute(
+            path: 'shipping-address',
+            name: 'shipping-address',
+            builder: (context, state) => const ShippingAddressSelectionView(),
+          ),
+          GoRoute(
+            path: 'shipping-type',
+            name: 'shipping-type',
+            builder: (context, state) => const ShippingTypeSelectionView(),
+          ),
+          GoRoute(
+            path: 'success',
+            name: 'payment-success',
+            builder: (context, state) {
+              final order = state.extra is CheckoutResultModel
+                  ? (state.extra as CheckoutResultModel)
+                  : null;
+              final orderNumber = state.uri.queryParameters['order_number'];
+              return PaymentSuccessView(
+                order: order,
+                orderNumber: orderNumber,
+              );
+            },
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/orders',
+        name: 'orders',
+        builder: (context, state) {
+          final initialTab = state.extra is OrderTabStatus
+              ? state.extra as OrderTabStatus
+              : null;
+          return OrderListView(initialTab: initialTab);
+        },
+      ),
+      GoRoute(
+        path: '/orders/:orderNumber',
+        name: 'order-detail',
+        builder: (context, state) {
+          final orderNumber = state.pathParameters['orderNumber'] ?? '';
+          final order = state.extra is CheckoutResultModel
+              ? (state.extra as CheckoutResultModel)
+              : null;
+          return OrderDetailView(
+            orderNumber: orderNumber,
+            initialOrder: order,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/orders/:orderNumber/track',
+        name: 'track-order',
+        builder: (context, state) {
+          final orderNumber = state.pathParameters['orderNumber'] ?? '';
+          final order = state.extra is CheckoutResultModel
+              ? (state.extra as CheckoutResultModel)
+              : null;
+          return TrackOrderView(
+            orderNumber: orderNumber,
+            initialOrder: order,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/orders/:orderNumber/payment-proof',
+        name: 'upload-payment-proof',
+        builder: (context, state) {
+          final orderNumber = state.pathParameters['orderNumber'] ?? '';
+          final order = state.extra is CheckoutResultModel
+              ? (state.extra as CheckoutResultModel)
+              : null;
+          return UploadPaymentProofView(
+            orderNumber: orderNumber,
+            order: order,
+          );
+        },
       ),
     ],
     redirect: (context, state) {

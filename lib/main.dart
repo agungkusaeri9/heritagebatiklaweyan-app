@@ -29,8 +29,15 @@ Future<void> main() async {
   }
 
   // Inisialisasi SharedPreferences untuk penyimpanan non-sensitif
-  final sharedPreferences = await SharedPreferences.getInstance();
-  AppLogger.i('BOOT: SharedPreferences berhasil diinisialisasi.');
+  late final SharedPreferences sharedPreferences;
+  try {
+    sharedPreferences = await SharedPreferences.getInstance();
+    AppLogger.i('BOOT: SharedPreferences berhasil diinisialisasi.');
+  } catch (e, stack) {
+    AppLogger.e('BOOT: Gagal inisialisasi SharedPreferences, menggunakan fallback in-memory: $e', error: e, stackTrace: stack);
+    SharedPreferences.setMockInitialValues({});
+    sharedPreferences = await SharedPreferences.getInstance();
+  }
 
   runApp(
     ProviderScope(
@@ -50,7 +57,7 @@ class HeritageBatikApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Heritage Batik Laweyan',
+      title: 'ARBatik',
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

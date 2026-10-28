@@ -4,6 +4,288 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ---
 
+## [0.5.0-alpha.8] - 2026-10-28
+
+Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan berdasarkan tanggal (Date Grouping), 3 Tab Status (Active, Completed, Cancelled), Ringkasan Produk Utama untuk Multi-Produk, Layar Detail Pesanan (Order Detail Screen) dengan seluruh produk dan rincian biaya lengkap, Layar Lacak Pengiriman (Track Order Screen), serta Layar Edit Profil Pengguna (Your Profile Screen) yang terintegrasi langsung dengan menu Account dan sinkronisasi realtime ke backend API.
+
+### Fitur Baru & Peningkatan Mobile:
+
+#### 1. Layar Daftar Pesanan (`OrderListView` - `/orders`)
+- **App Bar Header**: Tombol kembali rounded dengan judul **My Orders** tipografi *Plus Jakarta Sans*.
+- **3 Tab Status Fungsional**:
+  - **Active**: Mengambil pesanan berstatus `processing` dan `pending` dari backend API. Menampilkan tombol **Track Order** untuk pesanan aktif.
+  - **Completed**: Mengambil pesanan berstatus `success` dari backend API dengan badge penanda status selesai.
+  - **Cancelled**: Mengambil pesanan berstatus `failed` dari backend API dengan badge penanda status dibatalkan.
+- **Pengelompokan Berdasarkan Tanggal (Date Grouping)**:
+  - Pesanan dikelompokkan secara visual berdasarkan tanggal pemesanan (*TODAY*, *YESTERDAY*, atau *DD MMM YYYY*).
+  - Dilengkapi aksen vertikal warna primer dan badge jumlah pesanan per kelompok tanggal.
+- **Ringkasan Multi-Produk per Pesanan**:
+  - Hanya menampilkan thumbnail, nama, dan varian produk pertama sebagai ringkasan utama (*primary product summary*).
+  - Badge visual `+N other products` dan thumbnail overlay counter untuk pesanan yang memiliki lebih dari satu produk.
+  - Menampilkan total jumlah jenis produk serta total kuantitas barang secara terpisah (contoh: `3 Products · Total Qty: 10 pcs`).
+  - Total harga mewakili keseluruhan pesanan dengan format rupiah konsisten.
+- **Paginasi & State Handling**:
+  - Shimmer loading skeleton (`OrderListSkeleton`).
+  - Empty state spesifik per tab (Active, Completed, Cancelled).
+  - Penanganan error network dengan tombol coba lagi.
+  - Pull-to-refresh dan infinite scroll pagination saat mendekati bagian bawah daftar.
+  - Pencegahan double-tap/rapid tap navigasi.
+
+#### 2. Layar Detail Pesanan (`OrderDetailView` - `/orders/:orderNumber`)
+- **Informasi Lengkap Pesanan**:
+  - Nomor pesanan dengan fitur salin ke clipboard.
+  - Tanggal pesanan, status pesanan, dan status pembayaran.
+  - Rincian alamat pengiriman lengkap (nama penerima, nomor telepon, alamat jalan, kecamatan, kota, provinsi, dan kode pos).
+  - Informasi kurir dan nomor resi pengiriman dengan tombol salin.
+  - Metode pembayaran, nomor rekening tujuan, dan bukti pembayaran jika ada.
+- **Daftar Seluruh Produk**:
+  - Menampilkan semua produk di dalam pesanan beserta thumbnail gambar, nama produk, informasi ukuran/varian, harga satuan, jumlah barang, dan subtotal harga.
+- **Ringkasan Biaya Lengkap**:
+  - Breakdown harga transparan dari API: Subtotal produk, ongkos kirim (*Shipping Fee*), diskon voucher/promo, biaya tambahan/layanan, dan Total Tagihan akhir.
+- **Aksi Kontekstual Sesuai Status**:
+  - Tombol **Track Order** untuk pesanan yang berstatus aktif.
+  - Tombol **Upload Payment Proof** untuk pesanan yang belum lunas.
+  - Aksi tracking dan pembayaran disembunyikan secara tepat pada pesanan selesai atau dibatalkan.
+
+#### 3. Layar Pelacakan Pengiriman (`TrackOrderView` - `/orders/:orderNumber/track`)
+- Kartu informasi kurir ekspedisi dan nomor resi pengiriman dengan aksi salin.
+- Ringkasan produk utama pesanan.
+- Alamat tujuan pengiriman penerima.
+- Indikator linimasa status pelacakan (*Order Placed*, *In Progress*, *Shipped*, *Delivered*).
+
+#### 4. Layar Edit Profil Akun (`YourProfileView` - `/your-profile`)
+- **Header Melengkung & Tombol Kembali**:
+  - Desain lengkungan cembung elegan warna cokelat primer (`AppColors.primary`) dengan tombol kembali membulat (`your_profile_back_button`) dan judul **Your Profile**.
+- **Foto Profil & Avatar Picker Sheet**:
+  - Menampilkan avatar aktif pengguna dari backend atau foto lokal dengan ikon penanda kamera.
+  - Modal bottom sheet untuk memilih foto baru dari galeri HP (lengkap dengan izin galeri runtime) atau mengembalikan ke avatar bawaan.
+- **Formulir Data Akun Terpadu**:
+  - **Full Name**: Input nama lengkap dengan validasi minimal 2 karakter.
+  - **Email Address**: Input email terdaftar dengan tanda baca saja (*read-only*) dan badge hijau *Verified*.
+  - **Phone Number**: Input nomor telepon dengan prefix chip negara Indonesia `+62` dan pemformatan khusus angka.
+  - **Gender**: Dropdown pilihan jenis kelamin (*Laki-laki / Male* dan *Perempuan / Female*).
+- **Aksi Simpan Perubahan (Save Changes)**:
+  - Tombol simpan dengan indikator loading (`authState.isSubmitting`).
+  - Terhubung langsung ke API backend (`authViewModelProvider.notifier.updateProfile`) untuk memperbarui nama, nomor telepon, jenis kelamin, serta unggah file foto avatar.
+  - Menampilkan snackbar sukses dan kembali ke halaman Account (`ProfileView`), yang seketika memperbarui informasi profil pengguna secara realtime.
+- **Navigasi Menu Account**:
+  - Menghubungkan item menu *Your profile* pada daftar menu pengaturan profil (`ProfileMenuList`) dan tombol pensil edit foto (`ProfileInformation`) ke rute `/your-profile`.
+
+#### 5. Integrasi Navigasi & Router
+- Mendaftarkan rute `/orders`, `/orders/:orderNumber/track`, dan `/your-profile` pada [AppRouter](file:///e:/apps/heritagebatiklaweyan/heritage_batik/lib/core/router/app_router.dart).
+- Menghubungkan tombol navigasi bawah *History* (`HomeView`) dan menu *My Orders* pada profil pengguna (`ProfileView`) ke layar daftar pesanan.
+- Menghubungkan notifikasi pesanan ke daftar pesanan.
+
+---
+
+## [0.5.0-alpha.6] - 2026-10-27
+
+Implementasi fitur Pencarian Produk komprehensif dengan Riwayat Lokal, Layar Filter Lanjutan (Gender, Sortir, RangeSlider harga halus tanpa titik putus-putus, Rating Bintang), Integrasi Promo Banner API dari Backend, serta Sistem Navigasi Kategori (Layar Daftar Seluruh Kategori dan Layar Daftar Produk per Kategori dengan Infinite Scrolling).
+
+### Fitur Baru & Peningkatan:
+
+#### 1. Navigasi & Layar Kategori Produk (Category Navigation & Screens)
+- **Navigasi Kategori Home**:
+  - Mengetuk kategori mana pun pada seksi *Category* di Home kini langsung mengarahkan pengguna ke halaman produk kategori terkait (`/category-products`).
+  - Mengetuk tombol **See All** mengarahkan pengguna ke layar daftar seluruh kategori (`/categories`).
+- **Layar Daftar Kategori (`CategoryListView` - `/categories`)**:
+  - Kolom pencarian *real-time* untuk memfilter kategori berdasarkan nama dan deskripsi.
+  - Kartu kategori visual memuat ikon/gambar, nama, deskripsi motif, badge total item, dan panah navigasi.
+  - Ikon keranjang belanja dengan indikator jumlah barang *real-time* di App Bar.
+  - Pull-to-refresh untuk memuat ulang kategori dari backend.
+- **Layar Produk Kategori (`CategoryProductsView` - `/category-products`)**:
+  - Banner header kategori memuat judul, deskripsi filosofi motif, dan total produk tersedia.
+  - Bar filter & sort chips interaktif (*Terbaru*, *Terpopuler*, *Harga Terendah*, *Harga Tertinggi*, serta tombol *Filter* dengan badge jumlah filter aktif).
+  - Kolom pencarian lokal di dalam halaman untuk memfilter produk dalam kategori secara instan.
+  - Grid responsif 2 kolom menggunakan `ProductCard`.
+  - Integrasi tombol tambah ke keranjang belanja (`cartViewModelProvider`).
+  - Paginasi scroll tanpa batas (*infinite scroll*) dengan pemuatan otomatis halaman berikutnya saat mendekati bagian bawah.
+  - Tampilan *empty state* ramah pengguna dan penanganan *error state* dengan tombol coba lagi.
+- **Model `ProductCategoryItem`**:
+  - Penambahan atribut `description`, method `copyWith`, dan normalisasi URL gambar dari backend server.
+
+#### 2. Fitur Filter Produk Lanjutan (`FilterView` - `/filter`)
+- **Pilihan Gender**: Chips seleksi *All*, *Men*, dan *Women*.
+- **Pengurutan (Sort By)**: *Most Recent*, *Popular*, *Price Low to High*, dan *Price High to Low*.
+- **Range Slider Harga Halus**:
+  - Menghilangkan titik-titik putih putus pada track slider dengan konfigurasi `SliderTheme` dan `rangeTickMarkShape` tanpa radius.
+  - Rentang harga Rp 0 s/d Rp 5.000.000 dengan pembulatan langkah kelipatan Rp 50.000.
+- **Filter Rating Ulasan**:
+  - Seleksi rating bintang realistis (*All*, *4.5 and above*, *4.0 - 4.5*, *3.5 - 4.0*, *3.0 - 3.5*, *Below 3.0*).
+  - Distribusi data rating dinamis pada `ProductItem.fromJson` (3.4 s/d 4.9).
+- **Tombol Filter Home & Search**:
+  - Desain ikon filter minimalis tanpa background sogan brown di halaman Home dengan touch target nyaman (44x44px).
+  - Badge angka dinamis yang menampilkan jumlah filter aktif.
+- **Perbaikan Alur Filter**:
+  - Memperbaiki logika `showHistory` di `SearchState` sehingga penekanan tombol *Apply Filter* tanpa teks pencarian langsung menampilkan daftar produk yang sesuai kriteria.
+
+#### 3. Layar Pencarian & Riwayat Lokal (`SearchView` - `/search`)
+- **Input Pencarian**: Input pencarian responsif dengan tombol hapus teks (*clear button*) dan tombol kembali.
+- **Riwayat Pencarian Lokal**:
+  - Riwayat pencarian tersimpan secara persisten pada `SharedPreferences` lokal.
+  - Aksi hapus riwayat per item dan tombol **Clear All** untuk menghapus semua riwayat pencarian.
+  - Mengetuk item riwayat langsung mengeksekusi pencarian.
+- **Hasil Pencarian Produk**:
+  - Menampilkan ringkasan kata kunci dan total produk ditemukan.
+  - Grid 2 kolom produk dengan status favorit dan tombol tambah keranjang.
+  - Penanganan kondisi kosong (*Empty State*) dan pesan kesalahan koneksi.
+
+#### 4. Integrasi Banner Promosi API (`PromoCarousel`)
+- Menghubungkan pengambilan data banner carousel di Home langsung ke endpoint backend API `/api/v1/banners`.
+- Fallback cerdas ke `HomeDummyData.banners` jika server backend tidak dapat dijangkau.
+- Penanganan aksi tap banner dinamis sesuai `target_type` (*product*, *category*, atau *external URL*).
+
+---
+
+## [0.5.0-alpha.5] - 2026-10-25
+
+Implementasi Halaman Checkout (Checkout Page) dengan Pemilihan Alamat Pengiriman (Shipping Address) dan Pemilihan Tipe/Kurir Pengiriman (Choose Shipping Type), penghapusan Delivery Fee dari halaman My Cart, perincian daftar pesanan (Order List), kalkulasi dinamis biaya kirim & total biaya, serta integrasi pemrosesan pesanan ke backend API.
+
+### Fitur Baru: Halaman Checkout & Pemilihan Pengiriman (Checkout Page & Shipping Selection)
+
+#### 1. Perubahan Halaman My Cart
+- **Penghapusan Delivery Fee**: Biaya pengiriman telah dihapus dari kalkulasi dan tampilan kartu ringkasan biaya keranjang (`CartPriceSummaryCard`), sehingga halaman My Cart hanya menampilkan Subtotal dan Total Belanja produk.
+- **Navigasi ke Checkout**: Mengetuk tombol *Proceed to Checkout* kini mengarahkan pengguna secara langsung ke rute `/checkout`.
+
+#### 2. Antarmuka Halaman Checkout
+- **App Bar Header**: Tombol kembali bersudut membulat dengan judul terpusat **Checkout** tipografi *Plus Jakarta Sans*.
+- **Seksi Shipping Address**:
+  - Menampilkan alamat pengiriman aktif (nama penerima, nomor telepon, alamat lengkap, dan badge *Primary*).
+  - Dilengkapi tombol **CHANGE** untuk membuka modal pemilihan alamat.
+- **Seksi Choose Shipping Type**:
+  - Menampilkan metode kurir pengiriman aktif beserta nama kurir, deskripsi/estimasi, dan ongkos kirim.
+  - Dilengkapi tombol **CHANGE** untuk membuka modal pemilihan kurir.
+- **Seksi Order List**:
+  - Menampilkan daftar produk yang dipesan beserta thumbnail gambar, nama produk, informasi varian/ukuran, dan harga satuan.
+  - Menampilkan badge jumlah total barang (misal: `2 items`).
+- **Seksi Price Summary**:
+  - Rincian biaya transparan: Subtotal, Delivery Fee (diperbarui otomatis sesuai kurir yang dipilih), dan Total Cost.
+- **Tombol Fixed Bottom (Continue to Payment)**:
+  - Tombol tetap di bagian bawah dengan indikator loading saat pesanan sedang diproses.
+
+#### 3. Halaman Terpisah (Full Screen) Pemilihan Alamat & Kurir Pengiriman
+- **Shipping Address Selection Page (`ShippingAddressSelectionView` - `/checkout/shipping-address`)**:
+  - Tampilan halaman penuh (*full screen*) dengan App Bar header `Shipping Address`.
+  - Kartu alamat tersimpan dengan penandaan *radio button* yang jelas, label alamat (*Home* / *Office*), status *Primary*, nama penerima, nomor HP, dan alamat lengkap.
+  - Tombol **Add New Shipping Address** yang memunculkan form penambahan alamat baru via API (`POST /api/v1/addresses`) dengan pemilih dinamis dan pencarian **Provinsi**, **Kota/Kabupaten**, dan **Kecamatan** yang terhubung ke master data RajaOngkir backend untuk keakuratan kalkulasi ongkos kirim.
+  - Tombol **Apply** tetap di bagian bawah (*fixed bottom*); perubahan alamat baru diterapkan ke halaman checkout saat tombol Apply diklik.
+- **Choose Shipping Type Page (`ShippingTypeSelectionView` - `/checkout/shipping-type`)**:
+  - Tampilan halaman penuh (*full screen*) dengan App Bar header `Choose Shipping Type`.
+  - Daftar kurir pengiriman aktif dari `GET /api/v1/couriers` dengan penandaan *radio button*, nama kurir, estimasi/deskripsi, dan tarif ongkir.
+  - Tombol **Apply** tetap di bagian bawah (*fixed bottom*); tarif ongkir dan total checkout diperbarui secara dinamis saat tombol Apply diklik.
+- **Halaman Payment Success (`PaymentSuccessView` - `/checkout/success`)**:
+  - Tampilan konfirmasi pembayaran sukses dengan ikon centang melingkar elegan berlatar hijau lembut (`#DCFCE7` dan `#16A34A`).
+  - Headline tebal **Payment Successful!** tipografi *Plus Jakarta Sans* dan pesan konfirmasi pembelian yang ramah.
+  - Kartu rincian transaksi aktual (*Actual Transaction Summary Card*) yang menampilkan Total Pembayaran, Kode Pesanan (dengan tombol salin clipboard), Tanggal Pemesanan, Metode Pembayaran terpilih, Nomor Rekening Bank tujuan transfer (dengan tombol salin), dan badge status pesanan.
+  - *Fixed bottom action area* dengan 2 tombol aksi utama:
+    1. **Upload Payment Proof** (Primary Filled Button): mengarahkan pengguna ke halaman upload bukti transfer.
+    2. **View Order Details** (Secondary Outlined Button): membuka rincian pesanan lengkap.
+  - Tombol *View E-Receipt* dihilangkan sepenuhnya sesuai spesifikasi kebutuhan.
+- **Halaman Upload Bukti Pembayaran (`UploadPaymentProofView` - `/orders/:orderNumber/payment-proof`)**:
+  - Fitur pemilihan file foto atau galeri ponsel menggunakan `image_picker` dengan proteksi batas ukuran file.
+  - Integrasi API `POST /api/v1/orders/{identifier}/payment-proof` dengan pengiriman multipart form data gambar bukti transfer.
+  - Indikator progres upload dan pengalihan otomatis ke detail pesanan setelah berhasil diunggah.
+- **Halaman Detail Pesanan (`OrderDetailView` - `/orders/:orderNumber`)**:
+  - Mengambil data transaksi aktual secara langsung dari backend API `GET /api/v1/orders/{identifier}`.
+  - Menampilkan banner status pesanan dinamis, daftar produk pesanan, informasi kurir dan alamat penerima, detail pembayaran dan status bukti transfer, serta rincian subtotal, ongkir, dan total biaya.
+
+---
+
+## [0.5.0-alpha.4] - 2026-10-23
+
+Implementasi Halaman Keranjang Belanja (My Cart Page) yang terintegrasi penuh dengan backend API keranjang (`/api/v1/cart`), kontrol stepper kuantitas bertahap (+/-) dengan proteksi duplikasi request, aksi hapus item dengan modal konfirmasi bottom sheet, seksi kode promo ringkas non-editable, ringkasan harga (subtotal, ongkir, diskon, total cost), tombol *Proceed to Checkout* tetap di bagian bawah, skeleton loading, empty cart state, dan error state.
+
+### Fitur Baru: Halaman Keranjang Belanja (My Cart Page & API Integration)
+
+#### 1. Antarmuka Pengguna & App Bar
+- **App Bar Header**:
+  - Tombol kembali (*Back button*) konsisten dengan container bersudut melengkung halus (`Radius.circular(14)`).
+  - Judul terpusat **My Cart** dengan tipografi *Plus Jakarta Sans* bold 18px.
+  - Badge jumlah total barang di sudut kanan (misal: `3 items`).
+- **Daftar Produk Scrollable**:
+  - Tampilan item keranjang tanpa kotak kartu (*cardless*), menggunakan garis bawah (*bottom border divider*) yang rapi antar produk.
+  - Setiap item menampilkan gambar produk dengan penanganan fallback, nama produk batik yang dapat membungkus baris (*wrap multi-line*) dengan ukuran font dan jarak ke bawah yang lebih proporsional, ukuran/varian terpilih (`Size: XL`, dsb.), dan harga satuan berformat Rupiah (`formatRupiah`).
+  - **Aksi Edit & Hapus Geser**: Ikon tempat sampah pada setiap item digantikan dengan **ikon edit** (`Icons.edit_outlined`). Mengetuk ikon edit menggeser kartu item ke arah kiri (*slide to the left*) dan memunculkan tombol hapus di sisi kanan dengan latar belakang merah pink lembut (`#FEE2E2`) serta ikon tempat sampah berwarna merah (`#EF4444`).
+  - **Modal Konfirmasi Bottom Sheet**: Mengetuk tombol hapus memunculkan bottom sheet konfirmasi yang menampilkan foto produk, nama, ukuran, harga satuan, tombol `Cancel` (menutup modal tanpa menghapus), dan tombol `Yes, Remove` (mengeksekusi penghapusan item).
+  - Kontrol stepper kuantitas (+/-) berbentuk kotak (*square*) bersih tanpa border kapsul luar: `[kotak minus] [angka] [kotak plus]`.
+
+#### 2. Logika Bisnis & Kontrol Kuantitas
+- **Penambahan Kuantitas (+)**:
+  - Validasi batas maksimal 20 item per varian sesuai aturan backend dan pembatasan stok produk.
+  - Menerapkan *optimistic update* seketika untuk respons antarmuka tanpa lag.
+- **Pengurangan Kuantitas (-)**:
+  - Mengurangi kuantitas secara bertahap.
+  - Jika kuantitas saat ini bernilai 1, menekan tombol `-` secara otomatis memunculkan modal konfirmasi hapus (*CartDeleteBottomSheet*).
+- **Proteksi Duplikasi Request**:
+  - Mencegah request ganda ke API saat operasi perubahan kuantitas atau penghapusan sedang berlangsung melalui set `updatingItemIds` dan `deletingItemIds`.
+  - Dilengkapi mekanisme *rollback* otomatis jika terjadi kegagalan jaringan pada server.
+
+#### 3. Ringkasan Harga Tetap (Fixed Bottom) & Checkout
+- **Order Summary Card Bersih**:
+  - Menampilkan rincian Subtotal, Ongkos Kirim (*Delivery Fee*), dan Total Akhir (*Total Cost*) tanpa baris kupon atau diskon.
+- **Tombol Proceed to Checkout**:
+  - Menempel tetap di bagian bawah layar (*fixed bottom*) berlatar belakang putih dengan bayangan elevasi halus.
+  - Terhubung dengan alur checkout dan navigasi.
+
+#### 4. Penanganan Status & Integrasi Header Beranda
+- **Loading Skeleton**: Animasi shimmer placeholder kartu produk dan ringkasan harga.
+- **Empty Cart State**: Tampilan ilustrasi tas belanja minimalis *"Your Cart is Empty"* dengan tombol *"Start Shopping"* yang mengarahkan ke halaman beranda.
+- **Error State**: Tampilan gagal memuat disertai tombol *"Try Again"*.
+- **Integrasi Header Beranda**: Ikon tas belanja di `HomeHeader` kini terhubung langsung ke rute `/cart` dan memantau live item count via `cartItemCountProvider`.
+
+---
+
+## [0.5.0-alpha.3] - 2026-10-23
+
+Implementasi Halaman Notifikasi (Notification Page) yang terintegrasi penuh dengan backend API notifikasi (`/api/v1/notifications`), pengelompokan tanggal cerdas (*Today*, *Yesterday*, tanggal lama), badge notifikasi belum dibaca (`2 NEW`), aksi *Mark all as read* per kelompok tanggal, penanganan status baca individual saat item ditekan, modal detail notifikasi bottom sheet, loading skeleton, empty state, error state, pagination *infinite scroll*, dan pull-to-refresh.
+
+### Fitur Baru: Halaman Notifikasi (Notification Page & API Integration)
+
+#### 1. Antarmuka Pengguna & App Bar
+- **App Bar Header**:
+  - Tombol kembali (*Back button*) konsisten dengan rounded container dan bayangan halus.
+  - Judul halaman **Notification** dengan tipografi *Plus Jakarta Sans* bold 18px.
+  - Badge unread count dinamis di sisi kanan (misal: `2 NEW`) berlatar belakang amber pastel dengan border halus.
+- **Pengelompokan Tanggal (Date Grouping)**:
+  - Notifikasi dikelompokkan secara otomatis berdasarkan waktu pembuatan (`created_at`):
+    - **TODAY**: Notifikasi hari ini.
+    - **YESTERDAY**: Notifikasi kemarin.
+    - **TANGGAL LAIN**: Format rapi `dd MMM yyyy` untuk notifikasi sebelumnya.
+- **Aksi "Mark all as read" per Seksi**:
+  - Tombol aksi cepat *"Mark all as read"* di sisi kanan header setiap kelompok tanggal.
+  - Terintegrasi langsung dengan endpoint `POST /api/v1/notifications/mark-read` dengan payload `{ notification_ids: [...] }`.
+  - Menggunakan *optimistic update* pada antarmuka agar perubahan status baca dan penurunan jumlah badge unread terjadi secara instan tanpa lag.
+
+#### 2. Item Notifikasi & Kategori Ikon
+- **Ikon dan Palet Warna Sesuai Kategori**:
+  - `PROMO_DISCOUNT`: Ikon kupon diskon berlatar belakang amber pastel (`Color(0xFFFEF3C7)`).
+  - `ORDER_STATUS_UPDATE`: Ikon pengiriman / kurir berlatar belakang biru pastel (`Color(0xFFEFF6FF)`).
+  - `GENERAL_ANNOUNCEMENT`: Ikon megaphone / pengumuman berlatar belakang sogan brown soft (`Color(0xFFF5EFEB)`).
+  - `ADMIN_ALERT`: Ikon peringatan berlatar belakang rose soft (`Color(0xFFFFF1F2)`).
+  - *Default/Lainnya*: Ikon lonceng berlatar belakang slate soft (`Color(0xFFF1F5F9)`).
+- **Elemen Item Notifikasi**:
+  - Judul notifikasi bold dengan penanganan teks panjang (*overflow ellipsis*).
+  - Dot indikator berwarna aksen oranye/amber untuk notifikasi yang belum dibaca (*unread*).
+  - Cuplikan isi pesan dengan tinggi baris proporsional.
+  - Waktu relatif (*relative timestamp*) seperti `10m ago`, `2h ago`, `Yesterday`, dsb.
+  - Pill label kategori di sudut kanan bawah setiap item.
+
+#### 3. Interaksi & Modal Detail Notifikasi
+- **Menandai Notifikasi Terbaca Individual**:
+  - Saat item ditekan, aplikasi secara otomatis menandai notifikasi tersebut sebagai terbaca via `POST /api/v1/notifications/{id}/mark-read`.
+- **Modal Detail Bottom Sheet**:
+  - Menampilkan isi pesan lengkap tanpa terpotong, badge kategori, waktu pengiriman, dan tombol aksi kontekstual (misal *"Belanja Batik Sekarang"* untuk promo atau *"Lihat Status Pesanan"* untuk transaksi).
+
+#### 4. Penanganan Status & Paginasi
+- **Loading Skeleton**: Animasi placeholder berkilau (*shimmering skeleton*) saat pertama kali memuat data.
+- **Empty State**: Ilustrasi lonceng minimalis, pesan bersahabat *"No Notifications Yet"*, dan tombol *"Refresh"*.
+- **Error State**: Tampilan jika gagal terhubung ke server disertai tombol *"Try Again"*.
+- **Infinite Scroll / Pagination**: Otomatis memuat halaman notifikasi berikutnya saat pengguna menggulir mendekati batas bawah layar.
+- **Pull-to-Refresh**: Mendukung gestur tarik ke bawah (`RefreshIndicator`) untuk memperbarui data notifikasi.
+- **Integrasi Header Home**: Ikon notifikasi di `HomeHeader` kini terhubung langsung ke rute `/notifications` dan memantau live unread count via `unreadNotificationCountProvider`.
+
+---
+
 ## [0.5.0-alpha.2] - 2026-10-23
 
 Implementasi halaman Kebijakan & Privasi (Privacy Policy) yang terintegrasi penuh dengan backend API setting, antarmuka modern yang simpel dan bersih (clean typography & bullet points), modal konfirmasi logout interaktif berbasis Bottom Sheet dengan loading state dan proteksi duplikasi, serta badge "Soon" pada menu Payment Methods dan Invites Friends.

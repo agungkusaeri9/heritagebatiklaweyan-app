@@ -29,7 +29,12 @@ class ProfileMenuList extends StatelessWidget {
     }
 
     if (item.id == 'your_profile') {
-      context.push('/complete-profile');
+      context.push('/your-profile');
+      return;
+    }
+
+    if (item.id == 'my_orders') {
+      context.push('/orders');
       return;
     }
 

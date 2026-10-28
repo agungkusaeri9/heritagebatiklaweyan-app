@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/app_bottom_navigation.dart';
 
 /// Reusable Widget: HomeBottomNavigation
-/// Bilah navigasi bawah reusable berbentuk rounded pill melayang
-/// Menggunakan AppBottomNavigation (5 menu: Home, Bag, Wishlist, Messages, Account)
+/// Bilah navigasi bawah modern & minimalis (4 menu: Home, Wishlist, History, Account)
 class HomeBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
@@ -22,4 +21,3 @@ class HomeBottomNavigation extends StatelessWidget {
     );
   }
 }
-

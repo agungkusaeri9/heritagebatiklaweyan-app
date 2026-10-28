@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/app_bottom_navigation.dart';
 
 /// Reusable Widget: ProfileBottomNavigation
-/// Bilah navigasi berbentuk rounded pill melayang (5 menu: Home, Bag, Wishlist, Messages, Account)
+/// Bilah navigasi bawah modern & minimalis (4 menu: Home, Wishlist, History, Account)
 class ProfileBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
 
   const ProfileBottomNavigation({
     super.key,
-    this.currentIndex = 4, // Default aktif pada tab Account (index 4)
+    this.currentIndex = 3, // Default aktif pada tab Account (index 3)
     required this.onTabSelected,
   });
 

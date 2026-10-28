@@ -9,6 +9,8 @@ class HomeSearchBar extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback? onFilterTap;
   final VoidCallback? onTap;
+  final bool readOnly;
+  final int activeFilterCount;
 
   const HomeSearchBar({
     super.key,
@@ -16,6 +18,8 @@ class HomeSearchBar extends StatelessWidget {
     this.onChanged,
     this.onFilterTap,
     this.onTap,
+    this.readOnly = false,
+    this.activeFilterCount = 0,
   });
 
   @override
@@ -26,20 +30,23 @@ class HomeSearchBar extends StatelessWidget {
         children: [
           // 1. Kolom Input Pencarian
           Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFE2E8F0),
-                  width: 1.2,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
                 ),
-              ),
-              child: TextField(
-                controller: controller,
-                onChanged: onChanged,
-                onTap: onTap,
+                child: TextField(
+                  controller: controller,
+                  readOnly: readOnly,
+                  onChanged: onChanged,
+                  onTap: onTap,
                 textInputAction: TextInputAction.search,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
@@ -67,10 +74,11 @@ class HomeSearchBar extends StatelessWidget {
               ),
             ),
           ),
+        ),
 
-          const SizedBox(width: 10),
+        const SizedBox(width: 10),
 
-          // 2. Tombol Filter Aksen Cokelat Sogan
+          // 2. Tombol Filter Tanpa Background (Hanya Icon)
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -78,31 +86,54 @@ class HomeSearchBar extends StatelessWidget {
                   () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Filter produk batik (Tahap integrasi berikutnya)'),
+                        content: Text('Filter produk batik'),
                         duration: Duration(seconds: 1),
                       ),
                     );
                   },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.tune_rounded,
+                      color: activeFilterCount > 0
+                          ? AppColors.primary
+                          : const Color(0xFF0F172A),
+                      size: 24,
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.tune_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
+                  ),
+                  if (activeFilterCount > 0)
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '$activeFilterCount',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

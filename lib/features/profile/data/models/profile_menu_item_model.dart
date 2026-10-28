@@ -28,7 +28,7 @@ class ProfileMenuItemModel {
       id: 'your_profile',
       title: 'Your profile',
       icon: Icons.person_outline_rounded,
-      route: '/complete-profile',
+      route: '/your-profile',
     ),
     ProfileMenuItemModel(
       id: 'payment_methods',
@@ -40,6 +40,7 @@ class ProfileMenuItemModel {
       id: 'my_orders',
       title: 'My Orders',
       icon: Icons.shopping_bag_outlined,
+      route: '/orders',
     ),
     ProfileMenuItemModel(
       id: 'settings',

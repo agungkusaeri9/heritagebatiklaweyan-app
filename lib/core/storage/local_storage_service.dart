@@ -13,6 +13,9 @@ abstract class ILocalStorageService {
   Future<bool> remove(String key);
   Future<bool> clear();
 
+  Future<bool> setStringList(String key, List<String> value);
+  List<String>? getStringList(String key);
+
   // Helper convenience methods
   Future<void> saveLastUsername(String username);
   String? getLastUsername();
@@ -20,6 +23,9 @@ abstract class ILocalStorageService {
   bool isDarkMode();
   Future<void> setOnboardingCompleted(bool completed);
   bool hasCompletedOnboarding();
+  Future<void> saveSearchHistory(List<String> history);
+  List<String> getSearchHistory();
+  Future<void> clearSearchHistory();
 }
 
 class LocalStorageService implements ILocalStorageService {
@@ -91,5 +97,29 @@ class LocalStorageService implements ILocalStorageService {
   @override
   bool hasCompletedOnboarding() {
     return getBool(StorageKeys.hasCompletedOnboarding) ?? false;
+  }
+
+  @override
+  Future<bool> setStringList(String key, List<String> value) {
+    AppLogger.d('LocalStorage: setStringList $key (${value.length} items)');
+    return _prefs.setStringList(key, value);
+  }
+
+  @override
+  List<String>? getStringList(String key) => _prefs.getStringList(key);
+
+  @override
+  Future<void> saveSearchHistory(List<String> history) async {
+    await setStringList(StorageKeys.searchHistory, history);
+  }
+
+  @override
+  List<String> getSearchHistory() {
+    return getStringList(StorageKeys.searchHistory) ?? <String>[];
+  }
+
+  @override
+  Future<void> clearSearchHistory() async {
+    await remove(StorageKeys.searchHistory);
   }
 }

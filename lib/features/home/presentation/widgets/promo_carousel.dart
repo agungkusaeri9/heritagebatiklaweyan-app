@@ -32,6 +32,17 @@ class _PromoCarouselState extends State<PromoCarousel> {
     _startAutoScroll();
   }
 
+  @override
+  void didUpdateWidget(covariant PromoCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.banners.length != widget.banners.length) {
+      if (_currentPage >= widget.banners.length) {
+        _currentPage = 0;
+      }
+      _startAutoScroll();
+    }
+  }
+
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
     if (widget.banners.length <= 1) return;
@@ -142,35 +153,63 @@ class _PromoCarouselState extends State<PromoCarousel> {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            // Background Ornamen Motif Samar
-            Positioned(
-              right: -20,
-              bottom: -20,
-              child: Opacity(
-                opacity: 0.12,
-                child: Icon(
-                  banner.icon,
-                  size: 170,
-                  color: Colors.white,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              // 1. Background Ornamen Motif Samar (Default)
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Opacity(
+                  opacity: 0.12,
+                  child: Icon(
+                    banner.icon,
+                    size: 170,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ),
 
-            // Lingkaran aksen hiasan
-            Positioned(
-              right: 15,
-              top: -30,
-              child: Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06),
+              // 2. Lingkaran aksen hiasan
+              Positioned(
+                right: 15,
+                top: -30,
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
                 ),
               ),
-            ),
+
+              // 3. Background Gambar (jika tersedia dari endpoint API)
+              if (banner.imageUrl != null && banner.imageUrl!.isNotEmpty) ...[
+                Positioned.fill(
+                  child: Image.network(
+                    banner.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                  ),
+                ),
+                // Gradient overlay agar teks dan badge selalu terbaca jelas
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withValues(alpha: 0.72),
+                          Colors.black.withValues(alpha: 0.28),
+                        ],
+                        begin: Alignment.bottomLeft,
+                        end: Alignment.topRight,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
 
             // Konten Banner
             Padding(
@@ -272,6 +311,7 @@ class _PromoCarouselState extends State<PromoCarousel> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

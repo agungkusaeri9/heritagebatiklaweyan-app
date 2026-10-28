@@ -3,21 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../cart/presentation/viewmodels/cart_providers.dart';
 import '../../../location/presentation/viewmodels/location_providers.dart';
+import '../../../notification/presentation/viewmodels/notification_providers.dart';
 
 /// Reusable Widget: HomeHeader
 /// Menampilkan lokasi pengiriman pengguna dengan dropdown serta ikon Cart dan Notifikasi ber-badge
 class HomeHeader extends ConsumerWidget {
-  final int cartCount;
-  final int notificationCount;
+  final int? cartCount;
+  final int? notificationCount;
   final VoidCallback? onCartTap;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onAddressTap;
 
   const HomeHeader({
     super.key,
-    this.cartCount = 2,
-    this.notificationCount = 3,
+    this.cartCount,
+    this.notificationCount,
     this.onCartTap,
     this.onNotificationTap,
     this.onAddressTap,
@@ -28,6 +30,10 @@ class HomeHeader extends ConsumerWidget {
     final locationState = ref.watch(locationViewModelProvider);
     final currentLocation = locationState.location;
     final addressText = currentLocation?.displayName ?? 'Kampung Batik Laweyan, Solo';
+    final liveUnreadCount = ref.watch(unreadNotificationCountProvider);
+    final effectiveNotificationCount = notificationCount ?? liveUnreadCount;
+    final liveCartCount = ref.watch(cartItemCountProvider);
+    final effectiveCartCount = cartCount ?? liveCartCount;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -97,35 +103,19 @@ class HomeHeader extends ConsumerWidget {
           // 2. Ikon Cart dengan Badge
           _buildActionIconButton(
             icon: Icons.shopping_bag_outlined,
-            badgeCount: cartCount,
+            badgeCount: effectiveCartCount,
             tooltip: 'Keranjang Belanja',
-            onTap: onCartTap ??
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Keranjang belanja (Tahap integrasi berikutnya)'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                },
+            onTap: onCartTap ?? () => context.push('/cart'),
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(width: 4),
 
           // 3. Ikon Notifikasi dengan Badge
           _buildActionIconButton(
             icon: Icons.notifications_outlined,
-            badgeCount: notificationCount,
+            badgeCount: effectiveNotificationCount,
             tooltip: 'Notifikasi',
-            onTap: onNotificationTap ??
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Notifikasi toko (Tahap integrasi berikutnya)'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                },
+            onTap: onNotificationTap ?? () => context.push('/notifications'),
           ),
         ],
       ),
@@ -145,33 +135,24 @@ class HomeHeader extends ConsumerWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFE2E8F0),
-                  width: 1,
-                ),
-              ),
+            customBorder: const CircleBorder(),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
               child: Icon(
                 icon,
-                size: 21,
-                color: const Color(0xFF334155),
+                size: 25,
+                color: const Color(0xFF1E293B),
               ),
             ),
           ),
         ),
         if (badgeCount > 0)
           Positioned(
-            top: -3,
-            right: -3,
+            top: 2,
+            right: 2,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
               decoration: BoxDecoration(
                 color: const Color(0xFFEF4444),
                 shape: BoxShape.circle,
@@ -182,7 +163,7 @@ class HomeHeader extends ConsumerWidget {
                   badgeCount > 9 ? '9+' : '$badgeCount',
                   style: GoogleFonts.plusJakartaSans(
                     color: Colors.white,
-                    fontSize: 9.5,
+                    fontSize: 9,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

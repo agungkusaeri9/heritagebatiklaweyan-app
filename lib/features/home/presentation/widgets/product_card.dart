@@ -4,9 +4,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/models/home_dummy_data.dart';
 
 /// Reusable Widget: ProductCard
-/// Kartu produk batik dengan badge diskon, harga strikethrough, dan status favorit
+/// Kartu produk batik dengan gambar network / placeholder visual, badge diskon, harga strikethrough, dan status favorit
 class ProductCard extends StatefulWidget {
   final ProductItem product;
+  final double? width;
   final ValueChanged<ProductItem>? onProductTap;
   final ValueChanged<bool>? onFavoriteToggle;
   final VoidCallback? onAddToCart;
@@ -14,6 +15,7 @@ class ProductCard extends StatefulWidget {
   const ProductCard({
     super.key,
     required this.product,
+    this.width = 175,
     this.onProductTap,
     this.onFavoriteToggle,
     this.onAddToCart,
@@ -30,6 +32,14 @@ class _ProductCardState extends State<ProductCard> {
   void initState() {
     super.initState();
     _isFavorite = widget.product.isFavorite;
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.isFavorite != widget.product.isFavorite) {
+      _isFavorite = widget.product.isFavorite;
+    }
   }
 
   String _formatCurrency(double amount) {
@@ -49,8 +59,58 @@ class _ProductCardState extends State<ProductCard> {
     return 'Rp ${buffer.toString().split('').reversed.join('')}';
   }
 
+  Widget _buildPlaceholderGraphic() {
+    return Container(
+      height: 140,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            widget.product.placeholderColor,
+            widget.product.placeholderColor.withValues(alpha: 0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.15,
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 4,
+                  mainAxisSpacing: 4,
+                ),
+                itemCount: 16,
+                itemBuilder: (context, i) => const Icon(
+                  Icons.diamond_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Icon(
+              Icons.checkroom_rounded,
+              size: 46,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasDiscount = widget.product.originalPrice > widget.product.discountedPrice &&
+        widget.product.discountPercentage > 0;
+
     return GestureDetector(
       onTap: () {
         if (widget.onProductTap != null) {
@@ -65,7 +125,7 @@ class _ProductCardState extends State<ProductCard> {
         }
       },
       child: Container(
-        width: 175,
+        width: widget.width,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -90,58 +150,36 @@ class _ProductCardState extends State<ProductCard> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
               child: Stack(
                 children: [
-                  // Placeholder Visual Kain Batik
-                  Container(
-                    height: 140,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          widget.product.placeholderColor,
-                          widget.product.placeholderColor.withValues(alpha: 0.8),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Ornamen Batik Geometris Visual
-                        Positioned.fill(
-                          child: Opacity(
-                            opacity: 0.15,
-                            child: GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 4,
-                                crossAxisSpacing: 4,
-                                mainAxisSpacing: 4,
-                              ),
-                              itemCount: 16,
-                              itemBuilder: (context, i) => const Icon(
-                                Icons.diamond_outlined,
-                                color: Colors.white,
-                                size: 20,
-                              ),
+                  if (widget.product.imageUrl != null &&
+                      widget.product.imageUrl!.isNotEmpty)
+                    Image.network(
+                      widget.product.imageUrl!,
+                      height: 140,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildPlaceholderGraphic(),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 140,
+                          width: double.infinity,
+                          color: const Color(0xFFF1F5F9),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
-                        ),
-
-                        // Center Icon Visual Motif
-                        Center(
-                          child: Icon(
-                            Icons.checkroom_rounded,
-                            size: 46,
-                            color: Colors.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        );
+                      },
+                    )
+                  else
+                    _buildPlaceholderGraphic(),
 
                   // Badge Persentase Diskon (Kiri Atas)
-                  if (widget.product.discountPercentage > 0)
+                  if (hasDiscount)
                     Positioned(
                       top: 10,
                       left: 10,
@@ -269,18 +307,18 @@ class _ProductCardState extends State<ProductCard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Harga Asli Dicoret
-                            Text(
-                              _formatCurrency(widget.product.originalPrice),
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF94A3B8),
-                                decoration: TextDecoration.lineThrough,
+                            if (hasDiscount) ...[
+                              Text(
+                                _formatCurrency(widget.product.originalPrice),
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF94A3B8),
+                                  decoration: TextDecoration.lineThrough,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 1),
-                            // Harga Diskon
+                              const SizedBox(height: 1),
+                            ],
                             Text(
                               _formatCurrency(widget.product.discountedPrice),
                               style: GoogleFonts.plusJakartaSans(
@@ -295,27 +333,25 @@ class _ProductCardState extends State<ProductCard> {
 
                       // Tombol Tambah Keranjang Mini
                       GestureDetector(
-                        onTap: widget.onAddToCart ??
-                            () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${widget.product.name} dimasukkan ke keranjang',
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            },
+                        behavior: HitTestBehavior.opaque,
+                        onTap: widget.onAddToCart,
                         child: Container(
-                          width: 28,
-                          height: 28,
+                          width: 30,
+                          height: 30,
                           decoration: BoxDecoration(
                             color: AppColors.primary,
                             borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.25),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: const Icon(
                             Icons.add_rounded,
-                            size: 18,
+                            size: 19,
                             color: Colors.white,
                           ),
                         ),
