@@ -4,11 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:heritage_batik/features/checkout/data/models/checkout_result_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/customer_address_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/order_pagination_model.dart';
+import 'package:heritage_batik/features/checkout/data/models/order_review_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/region_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/shipping_type_model.dart';
 import 'package:heritage_batik/features/checkout/data/repositories/checkout_repository.dart';
 import 'package:heritage_batik/features/checkout/presentation/viewmodels/checkout_providers.dart';
 import 'package:heritage_batik/features/checkout/presentation/viewmodels/order_list_state.dart';
+import 'package:heritage_batik/features/checkout/presentation/views/leave_review_view.dart';
 import 'package:heritage_batik/features/checkout/presentation/views/order_detail_view.dart';
 import 'package:heritage_batik/features/checkout/presentation/views/order_list_view.dart';
 import 'package:heritage_batik/features/checkout/presentation/views/track_order_view.dart';
@@ -97,6 +99,33 @@ class FakeOrdersCheckoutRepository implements CheckoutRepository {
     required String filePath,
   }) =>
       throw UnimplementedError();
+
+  @override
+  Future<CheckoutResultModel> submitOrderReviews({
+    required CheckoutResultModel order,
+    required int transactionRating,
+    String? transactionComment,
+    required List<OrderItemReviewModel> productReviews,
+  }) async {
+    final updatedItems = order.items.map((item) {
+      final matched = productReviews
+          .where((r) => r.productId == item.productId)
+          .firstOrNull;
+      if (matched != null) {
+        return item.copyWith(isReviewed: true, review: matched);
+      }
+      return item;
+    }).toList();
+
+    return order.copyWith(
+      items: updatedItems,
+      isReviewedExplicit: true,
+      reviewedCount: productReviews.length,
+      transactionRating: transactionRating,
+      transactionReviewComment: transactionComment,
+      reviews: productReviews,
+    );
+  }
 
   @override
   Future<List<ProvinceModel>> getProvinces() async => const [];
@@ -397,6 +426,143 @@ void main() {
         expect(find.text('Order Placed'), findsOneWidget);
         expect(find.text('In Progress'), findsOneWidget);
         expect(find.text('Shipped'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'OrderDetailView displays per-product review status and Leave Review button one-by-one for completed orders',
+      (tester) async {
+        // 1. Unreviewed completed order -> shows Belum Diulas & per-product Leave Review button
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              checkoutRepositoryProvider.overrideWithValue(fakeRepo),
+            ],
+            child: MaterialApp(
+              home: OrderDetailView(
+                orderNumber: sampleCompletedOrder.orderNumber,
+                initialOrder: sampleCompletedOrder,
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('detail_unreviewed_status_badge')), findsOneWidget);
+        expect(find.byKey(const Key('detail_item_unreviewed_104')), findsOneWidget);
+        expect(find.byKey(const Key('leave_review_product_104')), findsOneWidget);
+        expect(find.text('Leave Review'), findsOneWidget);
+
+        // 2. Reviewed completed order -> shows Sudah Diulas · 5/5 & Lihat Ulasan button
+        final reviewedOrder = sampleCompletedOrder.copyWith(
+          isReviewedExplicit: true,
+          reviewedCount: 1,
+          averageRating: 5.0,
+          transactionRating: 5,
+          items: [
+            sampleCompletedOrder.items.first.copyWith(
+              isReviewed: true,
+              review: const OrderItemReviewModel(
+                id: 99,
+                orderId: 11,
+                productId: 104,
+                rating: 5,
+                comment: 'Kualitas kain batik sangat halus dan nyaman dipakai.',
+              ),
+            ),
+          ],
+          reviews: const [
+            OrderItemReviewModel(
+              id: 99,
+              orderId: 11,
+              productId: 104,
+              rating: 5,
+              comment: 'Kualitas kain batik sangat halus dan nyaman dipakai.',
+            ),
+          ],
+        );
+
+        final reviewedFakeRepo = FakeOrdersCheckoutRepository(
+          ordersByStatus: {
+            OrderTabStatus.completed.apiStatusValue: [reviewedOrder],
+          },
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              checkoutRepositoryProvider.overrideWithValue(reviewedFakeRepo),
+            ],
+            child: MaterialApp(
+              home: OrderDetailView(
+                orderNumber: reviewedOrder.orderNumber,
+                initialOrder: reviewedOrder,
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('detail_reviewed_status_badge')), findsOneWidget);
+        expect(find.byKey(const Key('detail_item_reviewed_104')), findsOneWidget);
+        expect(find.byKey(const Key('view_review_product_104')), findsOneWidget);
+        expect(find.text('Sudah Diulas · 5/5'), findsOneWidget);
+        expect(find.text('"Kualitas kain batik sangat halus dan nyaman dipakai."'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'LeaveReviewView displays selected single product and submits rating for that product',
+      (tester) async {
+        final multiProductCompletedOrder = sampleActiveMultiProductOrder.copyWith(
+          id: 25,
+          orderNumber: 'ORD-COMP-MULTI',
+          status: 'success',
+          paymentStatus: 'paid',
+        );
+
+        final selectedProductItem = multiProductCompletedOrder.items[1]; // Tunik Batik Sogan Klasik (productId: 102)
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              checkoutRepositoryProvider.overrideWithValue(fakeRepo),
+            ],
+            child: MaterialApp(
+              home: LeaveReviewView(
+                orderNumber: multiProductCompletedOrder.orderNumber,
+                initialOrder: multiProductCompletedOrder,
+                targetItem: selectedProductItem,
+                targetProductId: selectedProductItem.productId,
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Header & Single Selected Product Info
+        expect(find.text('Leave Review'), findsOneWidget);
+        expect(find.text('Tunik Batik Sogan Klasik'), findsOneWidget);
+        expect(find.text('How is your order?'), findsOneWidget);
+        expect(find.text('Your overall rating'), findsOneWidget);
+
+        // Select 5 stars for this product
+        await tester.tap(find.byKey(const Key('review_star_5')));
+        await tester.pump();
+
+        // Enter detailed review for this product
+        await tester.enterText(
+          find.byKey(const Key('review_comment_input')),
+          'Motif sogan klasiknya sangat rapi dan adem dipakai!',
+        );
+        await tester.pump();
+
+        // Cancel & Submit buttons are present
+        expect(find.byKey(const Key('cancel_review_button')), findsOneWidget);
+        expect(find.byKey(const Key('submit_review_button')), findsOneWidget);
       },
     );
   });

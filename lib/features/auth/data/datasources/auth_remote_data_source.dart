@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/logging/app_logger.dart';
@@ -97,6 +98,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       AppLogger.i('AuthRemoteDataSource: Melakukan login backend untuk email: $email');
 
+      // Ambil FCM Token otomatis dari Firebase SDK
+      String? fcmToken;
+      try {
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+        AppLogger.w('Gagal mendapatkan FCM token saat login: $e');
+      }
+
       // Kandidat endpoint login backend Laravel
       final candidateEndpoints = [
         ApiConstants.login, // /auth/login (relatif ke /api/v1)
@@ -108,6 +122,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final payload = {
         'email': email,
         'password': password,
+        if (fcmToken != null && fcmToken.isNotEmpty) 'fcm_token': fcmToken,
       };
 
       final response = await _postWithFallback(candidateEndpoints, payload);
@@ -135,6 +150,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       AppLogger.i('AuthRemoteDataSource: Melakukan registrasi backend untuk $username ($email)');
 
+      // Ambil FCM Token otomatis dari Firebase SDK
+      String? fcmToken;
+      try {
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+        AppLogger.w('Gagal mendapatkan FCM token saat register: $e');
+      }
+
       // Kandidat endpoint register backend Laravel
       final candidateEndpoints = [
         ApiConstants.register, // /auth/register (relatif ke /api/v1)
@@ -160,6 +188,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'email': email.trim(),
         'password': password,
         'password_confirmation': password,
+        if (fcmToken != null && fcmToken.isNotEmpty) 'fcm_token': fcmToken,
       };
 
       final response = await _postWithFallback(candidateEndpoints, payload);

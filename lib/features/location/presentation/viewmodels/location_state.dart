@@ -29,6 +29,7 @@ class LocationState {
   });
 
   bool get isLoading => status == LocationStatus.loading || status == LocationStatus.saving;
+  bool get isSaving => status == LocationStatus.saving;
   bool get isLocatingGps => status == LocationStatus.locatingGps;
   bool get hasLocation => location != null;
 

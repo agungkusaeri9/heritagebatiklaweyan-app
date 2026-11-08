@@ -15,4 +15,9 @@ class StorageKeys {
   static const String cachedUserProfile = 'PREF_CACHED_USER_PROFILE';
   static const String cachedUserLocation = 'PREF_CACHED_USER_LOCATION';
   static const String searchHistory = 'PREF_SEARCH_HISTORY';
+  static const String wishlistProductIds = 'PREF_WISHLIST_PRODUCT_IDS';
+  static const String cachedBanners = 'PREF_CACHED_BANNERS';
+  static const String cachedBannersTimestamp = 'PREF_CACHED_BANNERS_TIMESTAMP';
+  static const String cachedCategories = 'PREF_CACHED_CATEGORIES';
+  static const String cachedCategoriesTimestamp = 'PREF_CACHED_CATEGORIES_TIMESTAMP';
 }

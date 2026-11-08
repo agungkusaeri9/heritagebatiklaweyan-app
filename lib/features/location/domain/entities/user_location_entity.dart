@@ -20,24 +20,42 @@ class UserLocationEntity {
   bool get isGps => source.toLowerCase() == 'gps';
   bool get isManual => source.toLowerCase() == 'manual';
 
+  static final RegExp _coordRegExp = RegExp(
+    r'^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$',
+  );
+
+  static bool isPlaceholderOrCoordinate(String? value) {
+    if (value == null || value.trim().isEmpty) return true;
+    final lower = value.trim().toLowerCase();
+    return lower == 'lokasi perangkat (gps)' ||
+        lower == 'perangkat (gps)' ||
+        lower == 'lokasi saat ini' ||
+        lower == 'lokasi manual' ||
+        lower.startsWith('koordinat') ||
+        lower.startsWith('gps (') ||
+        lower.startsWith('lat:') ||
+        _coordRegExp.hasMatch(lower);
+  }
+
+  /// Apakah lokasi sudah memiliki nama alamat yang valid (bukan koordinat mentah / placeholder)
+  bool get hasResolvedAddress {
+    return (address != null && !isPlaceholderOrCoordinate(address)) ||
+        (label != null && !isPlaceholderOrCoordinate(label));
+  }
+
+  /// Menampilkan nama lokasi / alamat sebenarnya (tidak pernah menampilkan koordinat mentah)
   String get displayName {
-    if (label != null && label!.trim().isNotEmpty) {
-      return label!.trim();
-    }
-    if (address != null && address!.trim().isNotEmpty) {
+    if (address != null && !isPlaceholderOrCoordinate(address)) {
       return address!.trim();
     }
-    if (latitude != null && longitude != null) {
-      return 'Lat: ${latitude!.toStringAsFixed(4)}, Lng: ${longitude!.toStringAsFixed(4)}';
+    if (label != null && !isPlaceholderOrCoordinate(label)) {
+      return label!.trim();
     }
-    return 'Lokasi Belum Diatur';
+    return 'Pilih Lokasi Pengiriman';
   }
 
   String get displaySubtitle {
-    if (isGps && latitude != null && longitude != null) {
-      return 'GPS (${latitude!.toStringAsFixed(4)}, ${longitude!.toStringAsFixed(4)})';
-    }
-    if (address != null && address!.trim().isNotEmpty) {
+    if (address != null && !isPlaceholderOrCoordinate(address)) {
       return address!.trim();
     }
     return 'Lokasi Tersimpan';

@@ -16,10 +16,7 @@ import '../widgets/search_results_section.dart';
 class SearchView extends ConsumerStatefulWidget {
   final String? initialQuery;
 
-  const SearchView({
-    super.key,
-    this.initialQuery,
-  });
+  const SearchView({super.key, this.initialQuery});
 
   @override
   ConsumerState<SearchView> createState() => _SearchViewState();
@@ -80,14 +77,16 @@ class _SearchViewState extends ConsumerState<SearchView> {
       return;
     }
 
-    final success = await ref.read(cartViewModelProvider.notifier).addToCart(
-      productId,
-      quantity: 1,
-      onError: (message) {
-        if (!mounted) return;
-        AppSnackBar.showError(context, message);
-      },
-    );
+    final success = await ref
+        .read(cartViewModelProvider.notifier)
+        .addToCart(
+          productId,
+          quantity: 1,
+          onError: (message) {
+            if (!mounted) return;
+            AppSnackBar.showError(context, message);
+          },
+        );
 
     if (success && mounted) {
       AppSnackBar.showSuccess(
@@ -116,11 +115,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
             // 1. Search Header: Back Button, Input TextField, Clear Button & Filter Button
             _buildSearchHeader(searchState),
 
-            const Divider(
-              color: Color(0xFFF1F5F9),
-              height: 1,
-              thickness: 1,
-            ),
+            const Divider(color: Color(0xFFF1F5F9), height: 1, thickness: 1),
 
             // 2. Konten Utama: Riwayat Pencarian vs Hasil Pencarian Produk
             Expanded(
@@ -132,10 +127,14 @@ class _SearchViewState extends ConsumerState<SearchView> {
                         _submitSearch(selectedQuery);
                       },
                       onDelete: (item) {
-                        ref.read(searchViewModelProvider.notifier).removeHistoryItem(item);
+                        ref
+                            .read(searchViewModelProvider.notifier)
+                            .removeHistoryItem(item);
                       },
                       onClearAll: () {
-                        ref.read(searchViewModelProvider.notifier).clearAllHistory();
+                        ref
+                            .read(searchViewModelProvider.notifier)
+                            .clearAllHistory();
                       },
                     )
                   : SearchResultsSection(
@@ -149,7 +148,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
                       scrollController: _scrollController,
                       onRetry: () => _submitSearch(_searchController.text),
                       onProductTap: (product) {
-                        context.push('/product/${product.id}');
+                        context.push('/product/${product.id}', extra: product);
                       },
                       onAddToCart: _handleAddToCart,
                     ),
@@ -200,10 +199,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFE2E8F0),
-                  width: 1.2,
-                ),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
               ),
               child: TextField(
                 controller: _searchController,
@@ -212,7 +208,9 @@ class _SearchViewState extends ConsumerState<SearchView> {
                 onSubmitted: _submitSearch,
                 onChanged: (value) {
                   setState(() {});
-                  ref.read(searchViewModelProvider.notifier).onQueryChanged(value);
+                  ref
+                      .read(searchViewModelProvider.notifier)
+                      .onQueryChanged(value);
                 },
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
@@ -241,7 +239,9 @@ class _SearchViewState extends ConsumerState<SearchView> {
                           onPressed: () {
                             _searchController.clear();
                             setState(() {});
-                            ref.read(searchViewModelProvider.notifier).clearSearch();
+                            ref
+                                .read(searchViewModelProvider.notifier)
+                                .clearSearch();
                           },
                         )
                       : null,

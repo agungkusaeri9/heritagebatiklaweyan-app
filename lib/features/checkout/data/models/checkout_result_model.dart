@@ -1,5 +1,6 @@
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import 'order_review_model.dart';
 
 /// Helper untuk menormalisasi URL gambar dari backend (mendukung path relatif & localhost)
 String? normalizeBackendImageUrl(String? rawUrl) {
@@ -32,6 +33,8 @@ class CheckoutOrderItemModel {
   final double price;
   final int quantity;
   final double totalPrice;
+  final bool isReviewed;
+  final OrderItemReviewModel? review;
 
   const CheckoutOrderItemModel({
     required this.id,
@@ -43,7 +46,37 @@ class CheckoutOrderItemModel {
     required this.price,
     required this.quantity,
     required this.totalPrice,
+    this.isReviewed = false,
+    this.review,
   });
+
+  CheckoutOrderItemModel copyWith({
+    int? id,
+    int? productId,
+    String? productName,
+    String? productSlug,
+    String? primaryImage,
+    String? variantInfo,
+    double? price,
+    int? quantity,
+    double? totalPrice,
+    bool? isReviewed,
+    OrderItemReviewModel? review,
+  }) {
+    return CheckoutOrderItemModel(
+      id: id ?? this.id,
+      productId: productId ?? this.productId,
+      productName: productName ?? this.productName,
+      productSlug: productSlug ?? this.productSlug,
+      primaryImage: primaryImage ?? this.primaryImage,
+      variantInfo: variantInfo ?? this.variantInfo,
+      price: price ?? this.price,
+      quantity: quantity ?? this.quantity,
+      totalPrice: totalPrice ?? this.totalPrice,
+      isReviewed: isReviewed ?? this.isReviewed,
+      review: review ?? this.review,
+    );
+  }
 
   factory CheckoutOrderItemModel.fromJson(Map<String, dynamic> json) {
     final nestedProduct = json['product'] is Map<String, dynamic>
@@ -73,13 +106,25 @@ class CheckoutOrderItemModel {
         double.tryParse(json['total_price']?.toString() ?? '') ??
         (parsedPrice * parsedQty);
 
+    final parsedProductId = json['product_id'] is int
+        ? json['product_id'] as int
+        : (int.tryParse(json['product_id']?.toString() ?? '0') ?? 0);
+
+    OrderItemReviewModel? parsedReview;
+    if (json['review'] is Map<String, dynamic>) {
+      parsedReview = OrderItemReviewModel.fromJson(
+        json['review'] as Map<String, dynamic>,
+        fallbackProductId: parsedProductId,
+      );
+    }
+    final bool parsedIsReviewed =
+        json['is_reviewed'] == true || parsedReview != null;
+
     return CheckoutOrderItemModel(
       id: json['id'] is int
           ? json['id'] as int
           : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
-      productId: json['product_id'] is int
-          ? json['product_id'] as int
-          : (int.tryParse(json['product_id']?.toString() ?? '0') ?? 0),
+      productId: parsedProductId,
       productName: rawName,
       productSlug: rawSlug,
       primaryImage: normalizeBackendImageUrl(rawImg),
@@ -87,6 +132,8 @@ class CheckoutOrderItemModel {
       price: parsedPrice,
       quantity: parsedQty,
       totalPrice: parsedTotal,
+      isReviewed: parsedIsReviewed,
+      review: parsedReview,
     );
   }
 
@@ -131,6 +178,12 @@ class CheckoutResultModel {
   final String? subdistrictName;
   final String? postalCode;
   final List<CheckoutOrderItemModel> items;
+  final bool isReviewedExplicit;
+  final int reviewedCount;
+  final double? averageRating;
+  final int? transactionRating;
+  final String? transactionReviewComment;
+  final List<OrderItemReviewModel> reviews;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -165,6 +218,12 @@ class CheckoutResultModel {
     this.subdistrictName,
     this.postalCode,
     this.items = const [],
+    this.isReviewedExplicit = false,
+    this.reviewedCount = 0,
+    this.averageRating,
+    this.transactionRating,
+    this.transactionReviewComment,
+    this.reviews = const [],
     this.createdAt,
     this.updatedAt,
   }) : id = id ?? orderId ?? 0,
@@ -231,6 +290,83 @@ class CheckoutResultModel {
   /// Apakah pesanan masih membutuhkan/mengizinkan unggah bukti pembayaran
   bool get canUploadPaymentProof =>
       isActiveOrder && paymentStatus.toLowerCase().trim() != 'paid';
+
+  /// Mencari data ulasan untuk produk tertentu dalam pesanan ini
+  OrderItemReviewModel? reviewForProduct(int productId) {
+    for (final item in items) {
+      if (item.productId == productId && item.review != null) {
+        return item.review;
+      }
+    }
+    for (final rev in reviews) {
+      if (rev.productId == productId) {
+        return rev;
+      }
+    }
+    return null;
+  }
+
+  /// Apakah seluruh produk di dalam pesanan sudah diberikan ulasan
+  bool get isFullyReviewed {
+    if (isReviewedExplicit) return true;
+    final distinctProductIds = items
+        .map((e) => e.productId)
+        .where((pid) => pid > 0)
+        .toSet();
+    if (distinctProductIds.isEmpty) {
+      return reviewedCount > 0 || reviews.isNotEmpty;
+    }
+    return distinctProductIds.every((pid) => reviewForProduct(pid) != null);
+  }
+
+  /// Apakah baru sebagian produk yang diulas
+  bool get isPartiallyReviewed {
+    if (isFullyReviewed) return false;
+    return reviewedCount > 0 ||
+        reviews.isNotEmpty ||
+        items.any((i) => i.isReviewed || i.review != null);
+  }
+
+  /// Jumlah produk yang belum diberikan ulasan
+  int get unreviewedProductCount {
+    final distinctProductIds = items
+        .map((e) => e.productId)
+        .where((pid) => pid > 0)
+        .toSet();
+    if (distinctProductIds.isEmpty) {
+      return isFullyReviewed ? 0 : distinctProductCount;
+    }
+    return distinctProductIds
+        .where((pid) => reviewForProduct(pid) == null)
+        .length;
+  }
+
+  /// Hanya transaksi yang sudah selesai (Completed) dan belum selesai diulas yang dapat meninggalkan ulasan
+  bool get canLeaveReview => isCompletedOrder && !isFullyReviewed;
+
+  /// Nilai rating efektif pesanan (dari transactionRating, averageRating backend, atau rata-rata ulasan produk)
+  double? get effectiveRating {
+    if (transactionRating != null && transactionRating! > 0) {
+      return transactionRating!.toDouble();
+    }
+    if (averageRating != null && averageRating! > 0) {
+      return averageRating;
+    }
+    final allRatings = <int>[];
+    for (final rev in reviews) {
+      if (rev.rating > 0) allRatings.add(rev.rating);
+    }
+    if (allRatings.isEmpty) {
+      for (final item in items) {
+        if (item.review != null && item.review!.rating > 0) {
+          allRatings.add(item.review!.rating);
+        }
+      }
+    }
+    if (allRatings.isEmpty) return null;
+    final avg = allRatings.reduce((a, b) => a + b) / allRatings.length;
+    return double.parse(avg.toStringAsFixed(1));
+  }
 
   /// Label status pesanan yang bersih
   String get statusLabel {
@@ -356,6 +492,12 @@ class CheckoutResultModel {
     String? subdistrictName,
     String? postalCode,
     List<CheckoutOrderItemModel>? items,
+    bool? isReviewedExplicit,
+    int? reviewedCount,
+    double? averageRating,
+    int? transactionRating,
+    String? transactionReviewComment,
+    List<OrderItemReviewModel>? reviews,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -388,6 +530,13 @@ class CheckoutResultModel {
       subdistrictName: subdistrictName ?? this.subdistrictName,
       postalCode: postalCode ?? this.postalCode,
       items: items ?? this.items,
+      isReviewedExplicit: isReviewedExplicit ?? this.isReviewedExplicit,
+      reviewedCount: reviewedCount ?? this.reviewedCount,
+      averageRating: averageRating ?? this.averageRating,
+      transactionRating: transactionRating ?? this.transactionRating,
+      transactionReviewComment:
+          transactionReviewComment ?? this.transactionReviewComment,
+      reviews: reviews ?? this.reviews,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -430,6 +579,15 @@ class CheckoutResultModel {
       subdistrictName: detail.subdistrictName ?? subdistrictName,
       postalCode: detail.postalCode ?? postalCode,
       items: detail.items.isNotEmpty ? detail.items : items,
+      isReviewedExplicit: detail.isReviewedExplicit || isReviewedExplicit,
+      reviewedCount: detail.reviewedCount > 0
+          ? detail.reviewedCount
+          : reviewedCount,
+      averageRating: detail.averageRating ?? averageRating,
+      transactionRating: detail.transactionRating ?? transactionRating,
+      transactionReviewComment:
+          detail.transactionReviewComment ?? transactionReviewComment,
+      reviews: detail.reviews.isNotEmpty ? detail.reviews : reviews,
       createdAt: detail.createdAt ?? createdAt,
       updatedAt: detail.updatedAt ?? updatedAt,
     );
@@ -624,6 +782,51 @@ class CheckoutResultModel {
           .toList();
     }
 
+    // Reviews
+    final int parsedOrderId = json['id'] is int
+        ? json['id'] as int
+        : (int.tryParse(json['id']?.toString() ?? '0') ?? 0);
+    List<OrderItemReviewModel> reviewsList = [];
+    if (json['reviews'] is List) {
+      reviewsList = (json['reviews'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (r) => OrderItemReviewModel.fromJson(
+              r,
+              fallbackOrderId: parsedOrderId,
+            ),
+          )
+          .toList();
+    }
+
+    // Jika item belum memiliki objek review namun ada di daftar reviews order, tautkan
+    if (reviewsList.isNotEmpty && itemsList.isNotEmpty) {
+      itemsList = itemsList.map((item) {
+        if (item.review != null) return item;
+        final matched = reviewsList
+            .where((r) => r.productId == item.productId)
+            .firstOrNull;
+        if (matched != null) {
+          return item.copyWith(isReviewed: true, review: matched);
+        }
+        return item;
+      }).toList();
+    }
+
+    final bool parsedIsReviewed = json['is_reviewed'] == true;
+    final int parsedReviewedCount = json['reviewed_count'] is int
+        ? json['reviewed_count'] as int
+        : (int.tryParse(json['reviewed_count']?.toString() ?? '') ??
+            reviewsList.length);
+    final double? parsedAvgRating = json['average_rating'] != null
+        ? ((json['average_rating'] as num?)?.toDouble() ??
+            double.tryParse(json['average_rating'].toString()))
+        : null;
+    final int? parsedTxRating = json['transaction_rating'] is int
+        ? json['transaction_rating'] as int
+        : int.tryParse(json['transaction_rating']?.toString() ?? '');
+    final String? parsedTxComment = json['transaction_comment']?.toString();
+
     // Created At & Updated At
     DateTime? dt;
     if (json['created_at'] != null) {
@@ -635,9 +838,7 @@ class CheckoutResultModel {
     }
 
     return CheckoutResultModel(
-      id: json['id'] is int
-          ? json['id'] as int
-          : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
+      id: parsedOrderId,
       orderNumber: json['order_number']?.toString() ?? '',
       status: json['status']?.toString() ?? 'pending',
       paymentStatus: payStatus,
@@ -665,6 +866,12 @@ class CheckoutResultModel {
       subdistrictName: subName,
       postalCode: postCode,
       items: itemsList,
+      isReviewedExplicit: parsedIsReviewed,
+      reviewedCount: parsedReviewedCount,
+      averageRating: parsedAvgRating,
+      transactionRating: parsedTxRating,
+      transactionReviewComment: parsedTxComment,
+      reviews: reviewsList,
       createdAt: dt ?? DateTime.now(),
       updatedAt: udt,
     );

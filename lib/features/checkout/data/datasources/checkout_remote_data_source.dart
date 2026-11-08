@@ -7,6 +7,7 @@ import '../../../store/data/models/payment_method_model.dart';
 import '../models/checkout_result_model.dart';
 import '../models/customer_address_model.dart';
 import '../models/order_pagination_model.dart';
+import '../models/order_review_model.dart';
 import '../models/region_model.dart';
 import '../models/shipping_type_model.dart';
 
@@ -35,6 +36,12 @@ abstract class CheckoutRemoteDataSource {
     required dynamic idOrOrderNumber,
     required String filePath,
   });
+  Future<CheckoutResultModel> submitOrderReviews({
+    required CheckoutResultModel order,
+    required int transactionRating,
+    String? transactionComment,
+    required List<OrderItemReviewModel> productReviews,
+  });
   Future<List<ProvinceModel>> getProvinces();
   Future<List<CityModel>> getCities(int provinceId);
   Future<List<SubdistrictModel>> getSubdistricts(int cityId);
@@ -44,6 +51,7 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
   final Dio dio;
   final DioClient dioClient;
   final Map<String, CheckoutResultModel> _orderDetailCache = {};
+  final Map<String, CheckoutResultModel> _reviewedOrderOverlay = {};
 
   CheckoutRemoteDataSourceImpl({required this.dio, required this.dioClient});
 
@@ -571,9 +579,15 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
       final responseData = response.data;
       if (responseData is Map<String, dynamic> &&
           responseData.containsKey('data')) {
-        final result = CheckoutResultModel.fromJson(
+        var result = CheckoutResultModel.fromJson(
           responseData['data'] as Map<String, dynamic>,
         );
+        final key = result.orderNumber.isNotEmpty
+            ? result.orderNumber
+            : result.id.toString();
+        if (_reviewedOrderOverlay.containsKey(key)) {
+          result = _applyReviewOverlay(result, _reviewedOrderOverlay[key]!);
+        }
         if (result.orderNumber.isNotEmpty) {
           _orderDetailCache[result.orderNumber] = result;
         }
@@ -597,6 +611,188 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
       );
       if (e is ApiException) rethrow;
       throw const ServerException(message: 'Gagal memuat detail pesanan.');
+    }
+  }
+
+  CheckoutResultModel _applyReviewOverlay(
+    CheckoutResultModel base,
+    CheckoutResultModel overlay,
+  ) {
+    final mergedReviewsMap = <int, OrderItemReviewModel>{};
+    for (final rev in base.reviews) {
+      mergedReviewsMap[rev.productId] = rev;
+    }
+    for (final rev in overlay.reviews) {
+      final existing = mergedReviewsMap[rev.productId];
+      mergedReviewsMap[rev.productId] = existing != null
+          ? existing.copyWith(
+              photoPaths: rev.photoPaths.isNotEmpty
+                  ? rev.photoPaths
+                  : existing.photoPaths,
+            )
+          : rev;
+    }
+
+    final updatedItems = base.items.map((item) {
+      final matched = mergedReviewsMap[item.productId] ?? item.review;
+      if (matched != null) {
+        return item.copyWith(isReviewed: true, review: matched);
+      }
+      return item;
+    }).toList();
+
+    return base.copyWith(
+      items: updatedItems,
+      isReviewedExplicit: base.isReviewedExplicit || overlay.isReviewedExplicit,
+      reviewedCount: mergedReviewsMap.length > base.reviewedCount
+          ? mergedReviewsMap.length
+          : base.reviewedCount,
+      averageRating: base.averageRating ?? overlay.averageRating,
+      transactionRating: overlay.transactionRating ?? base.transactionRating,
+      transactionReviewComment:
+          overlay.transactionReviewComment ?? base.transactionReviewComment,
+      reviews: mergedReviewsMap.values.toList(),
+    );
+  }
+
+  @override
+  Future<CheckoutResultModel> submitOrderReviews({
+    required CheckoutResultModel order,
+    required int transactionRating,
+    String? transactionComment,
+    required List<OrderItemReviewModel> productReviews,
+  }) async {
+    try {
+      final submittedReviews = <OrderItemReviewModel>[];
+
+      for (final itemReview in productReviews) {
+        final alreadyReviewedOnOrder =
+            order.reviewForProduct(itemReview.productId) != null;
+        if (alreadyReviewedOnOrder) {
+          submittedReviews.add(itemReview);
+          continue;
+        }
+
+        final payload = <String, dynamic>{
+          'order_id': order.id,
+          'product_id': itemReview.productId,
+          'rating': itemReview.rating,
+          if (itemReview.comment != null &&
+              itemReview.comment!.trim().isNotEmpty)
+            'comment': itemReview.comment!.trim(),
+        };
+
+        try {
+          AppLogger.d(
+            'Mengirim ulasan produk ${itemReview.productId} pada order #${order.id} ke ${ApiConstants.reviews}',
+          );
+          final response = await dio.post(ApiConstants.reviews, data: payload);
+          final responseData = response.data;
+          if (responseData is Map<String, dynamic> &&
+              responseData['data'] is Map<String, dynamic>) {
+            final parsed = OrderItemReviewModel.fromJson(
+              responseData['data'] as Map<String, dynamic>,
+              fallbackOrderId: order.id,
+              fallbackProductId: itemReview.productId,
+            ).copyWith(photoPaths: itemReview.photoPaths);
+            submittedReviews.add(parsed);
+          } else {
+            submittedReviews.add(
+              itemReview.copyWith(
+                orderId: order.id,
+                createdAt: DateTime.now(),
+              ),
+            );
+          }
+        } on DioException catch (e) {
+          // Jika produk sudah pernah diulas di server (422), tetap tandai sebagai sudah diulas
+          final statusCode = e.response?.statusCode ?? 0;
+          final msg = e.response?.data?.toString().toLowerCase() ?? '';
+          if (statusCode == 422 &&
+              (msg.contains('sudah memberikan ulasan') ||
+                  msg.contains('already'))) {
+            submittedReviews.add(
+              itemReview.copyWith(
+                orderId: order.id,
+                createdAt: DateTime.now(),
+              ),
+            );
+          } else {
+            rethrow;
+          }
+        }
+      }
+
+      // Gabungkan ulasan baru dengan ulasan produk yang sudah ada sebelumnya di pesanan ini
+      final allReviewsMap = <int, OrderItemReviewModel>{};
+      for (final existing in order.reviews) {
+        allReviewsMap[existing.productId] = existing;
+      }
+      for (final item in order.items) {
+        if (item.review != null) {
+          allReviewsMap[item.productId] = item.review!;
+        }
+      }
+      for (final submitted in submittedReviews) {
+        allReviewsMap[submitted.productId] = submitted;
+      }
+      final allReviews = allReviewsMap.values.toList();
+
+      final avgProductRating = allReviews.isNotEmpty
+          ? double.parse(
+              (allReviews.fold<int>(0, (s, r) => s + r.rating) /
+                      allReviews.length)
+                  .toStringAsFixed(1),
+            )
+          : transactionRating.toDouble();
+
+      final updatedItems = order.items.map((item) {
+        final matched = allReviewsMap[item.productId];
+        if (matched != null) {
+          return item.copyWith(isReviewed: true, review: matched);
+        }
+        return item;
+      }).toList();
+
+      final distinctProductIds = order.items.map((e) => e.productId).toSet();
+      final isAllProductsReviewed = distinctProductIds.isNotEmpty &&
+          distinctProductIds.every((pid) => allReviewsMap.containsKey(pid));
+
+      final updatedOrder = order.copyWith(
+        items: updatedItems,
+        isReviewedExplicit: isAllProductsReviewed,
+        reviewedCount: allReviews.length,
+        averageRating: avgProductRating,
+        transactionRating: transactionRating,
+        transactionReviewComment:
+            (transactionComment != null && transactionComment.trim().isNotEmpty)
+                ? transactionComment.trim()
+                : order.transactionReviewComment,
+        reviews: allReviews,
+      );
+
+      final key = updatedOrder.orderNumber.isNotEmpty
+          ? updatedOrder.orderNumber
+          : updatedOrder.id.toString();
+      _reviewedOrderOverlay[key] = updatedOrder;
+      _orderDetailCache[key] = updatedOrder;
+
+      return updatedOrder;
+    } on DioException catch (e, stack) {
+      AppLogger.e(
+        'DioException saat mengirim ulasan pesanan',
+        error: e,
+        stackTrace: stack,
+      );
+      throw dioClient.handleDioError(e);
+    } catch (e, stack) {
+      AppLogger.e(
+        'Gagal mengirim ulasan pesanan',
+        error: e,
+        stackTrace: stack,
+      );
+      if (e is ApiException) rethrow;
+      throw const ServerException(message: 'Gagal mengirim ulasan pesanan.');
     }
   }
 

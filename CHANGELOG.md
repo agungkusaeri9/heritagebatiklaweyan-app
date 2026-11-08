@@ -6,7 +6,7 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ## [0.5.0-alpha.8] - 2026-10-28
 
-Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan berdasarkan tanggal (Date Grouping), 3 Tab Status (Active, Completed, Cancelled), Ringkasan Produk Utama untuk Multi-Produk, Layar Detail Pesanan (Order Detail Screen) dengan seluruh produk dan rincian biaya lengkap, Layar Lacak Pengiriman (Track Order Screen), serta Layar Edit Profil Pengguna (Your Profile Screen) yang terintegrasi langsung dengan menu Account dan sinkronisasi realtime ke backend API.
+Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan berdasarkan tanggal (Date Grouping), 3 Tab Status (Active, Completed, Cancelled), Ringkasan Produk Utama untuk Multi-Produk, Layar Detail Pesanan (Order Detail Screen) dengan seluruh produk dan rincian biaya lengkap, Layar Lacak Pengiriman (Track Order Screen), Fitur Penilaian & Ulasan Transaksi dan Multi-Produk (`LeaveReviewView`), serta Layar Edit Profil Pengguna (Your Profile Screen) yang terintegrasi langsung dengan menu Account dan sinkronisasi realtime ke backend API.
 
 ### Fitur Baru & Peningkatan Mobile:
 
@@ -34,12 +34,18 @@ Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan 
 #### 2. Layar Detail Pesanan (`OrderDetailView` - `/orders/:orderNumber`)
 - **Informasi Lengkap Pesanan**:
   - Nomor pesanan dengan fitur salin ke clipboard.
-  - Tanggal pesanan, status pesanan, dan status pembayaran.
+  - Tanggal pesanan, status pesanan, status pembayaran, serta **Status Ulasan** (*Belum Diulas* / *Sebagian Diulas* / *Sudah Diulas*) khusus pesanan selesai.
   - Rincian alamat pengiriman lengkap (nama penerima, nomor telepon, alamat jalan, kecamatan, kota, provinsi, dan kode pos).
   - Informasi kurir dan nomor resi pengiriman dengan tombol salin.
   - Metode pembayaran, nomor rekening tujuan, dan bukti pembayaran jika ada.
-- **Daftar Seluruh Produk**:
+- **Kartu Status Ulasan Produk (`_buildReviewSummarySection`)**:
+  - Ditampilkan khusus saat status transaksi selesai (`isCompletedOrder`).
+  - Menunjukkan indikator badge **Belum Diulas**, **Sebagian Diulas**, atau **Sudah Diulas** beserta rata-rata bintang ulasan produk (`X.X / 5.0`).
+- **Daftar Seluruh Produk & Pilihan Ulasan Satu per Satu (`_buildItemsCard`)**:
   - Menampilkan semua produk di dalam pesanan beserta thumbnail gambar, nama produk, informasi ukuran/varian, harga satuan, jumlah barang, dan subtotal harga.
+  - Untuk transaksi yang telah selesai (`Completed`), setiap item produk memiliki status dan tombol aksi ulasan sendiri secara **satu per satu**:
+    - **Belum Diulas**: Menampilkan badge `Belum Diulas` dan tombol **Leave Review** (`leave_review_product_${productId}`) khusus untuk produk tersebut.
+    - **Sudah Diulas**: Menampilkan badge `Sudah Diulas · X/5`, isi komentar ulasan produk, dan tombol **Lihat Ulasan** (`view_review_product_${productId}`).
 - **Ringkasan Biaya Lengkap**:
   - Breakdown harga transparan dari API: Subtotal produk, ongkos kirim (*Shipping Fee*), diskon voucher/promo, biaya tambahan/layanan, dan Total Tagihan akhir.
 - **Aksi Kontekstual Sesuai Status**:
@@ -47,13 +53,21 @@ Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan 
   - Tombol **Upload Payment Proof** untuk pesanan yang belum lunas.
   - Aksi tracking dan pembayaran disembunyikan secara tepat pada pesanan selesai atau dibatalkan.
 
-#### 3. Layar Pelacakan Pengiriman (`TrackOrderView` - `/orders/:orderNumber/track`)
+#### 3. Layar Penilaian & Ulasan Per Produk (`LeaveReviewView` - `/orders/:orderNumber/review`)
+- **Pemilihan Produk Satu per Satu dari Detail Transaksi**:
+  - Menampilkan ringkasan produk yang dipilih dari daftar produk transaksi selesai (thumbnail, nama produk, ukuran/varian, kuantitas `Qty`, harga, dan badge nomor pesanan `#ORD-...`).
+  - Seksi **How is your order?** (`Your overall rating`) dengan pilihan rating interaktif 1–5 bintang.
+  - Seksi **Add detailed review** untuk menuliskan ulasan detail produk (opsional) dan fitur **Add photo** untuk melampirkan foto ulasan dari galeri (opsional).
+- **Validasi & Pengiriman Ulasan (`submitOrderReviews`)**:
+  - Mengirim ulasan produk yang dipilih ke endpoint `POST /api/v1/reviews` (`order_id`, `product_id`, `rating`, `comment`) dengan pencegahan *duplicate submission* dan langsung memperbarui status produk tersebut di `OrderDetailView` menjadi `Sudah Diulas` tanpa mengubah produk lain yang belum diulas.
+
+#### 4. Layar Pelacakan Pengiriman (`TrackOrderView` - `/orders/:orderNumber/track`)
 - Kartu informasi kurir ekspedisi dan nomor resi pengiriman dengan aksi salin.
 - Ringkasan produk utama pesanan.
 - Alamat tujuan pengiriman penerima.
 - Indikator linimasa status pelacakan (*Order Placed*, *In Progress*, *Shipped*, *Delivered*).
 
-#### 4. Layar Edit Profil Akun (`YourProfileView` - `/your-profile`)
+#### 5. Layar Edit Profil Akun (`YourProfileView` - `/your-profile`)
 - **Header Melengkung & Tombol Kembali**:
   - Desain lengkungan cembung elegan warna cokelat primer (`AppColors.primary`) dengan tombol kembali membulat (`your_profile_back_button`) dan judul **Your Profile**.
 - **Foto Profil & Avatar Picker Sheet**:
@@ -71,8 +85,25 @@ Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan 
 - **Navigasi Menu Account**:
   - Menghubungkan item menu *Your profile* pada daftar menu pengaturan profil (`ProfileMenuList`) dan tombol pensil edit foto (`ProfileInformation`) ke rute `/your-profile`.
 
-#### 5. Integrasi Navigasi & Router
-- Mendaftarkan rute `/orders`, `/orders/:orderNumber/track`, dan `/your-profile` pada [AppRouter](file:///e:/apps/heritagebatiklaweyan/heritage_batik/lib/core/router/app_router.dart).
+#### 6. Layar Detail Produk (`ProductDetailView` - `/product/:productId`) & Detail Toko (`StoreDetailView` - `/store/:storeId`)
+- **Screen Header**:
+  - Tombol kembali membulat (`product_detail_back_button`), judul **Details product**, dan ikon keranjang belanja (`product_detail_cart_button`) dengan badge jumlah item keranjang secara *real-time* (`product_detail_cart_badge`).
+- **Informasi Produk & Preview Gambar**:
+  - Preview gambar utama berukuran besar dengan rasio proporsional, fitur zoom *full-screen* (`InteractiveViewer`), dan galeri thumbnail multi-gambar.
+  - Menampilkan nama produk, badge persentase diskon, harga asli dicoret (*strikethrough*), harga jual saat ini, jumlah pembeli (`X people have bought this`), rating bintang, dan badge ketersediaan stok.
+  - Tombol **Favorite / Wishlist** (`product_detail_wishlist_button`) yang langsung memperbarui ikon hati dan menyimpan status favorit ke penyimpanan lokal (`WishlistNotifier` & `StorageKeys.wishlistProductIds`).
+- **Kartu Identitas Toko (`Store Identity Section`)**:
+  - Menampilkan logo/ikon toko, nama toko aktual dari API backend (`StoreSettingModel`), badge terverifikasi, dan alamat/deskripsi identitas toko.
+  - Dapat diklik untuk menavigasi ke layar **Store Detail** (`/store/:storeId`) dengan membawa ID dan data toko terkait.
+- **Deskripsi Produk (`Description of product`)**:
+  - Menampilkan deskripsi produk lengkap secara multiline dengan tata letak responsif.
+- **Pemilih Kuantitas & Add to Cart (`Bottom Action Bar`)**:
+  - Pemilih kuantitas (`-`, jumlah saat ini default `1`, `+`) yang membatasi nilai minimum `1` dan maksimum sesuai stok produk yang tersedia.
+  - Tombol **Add to Cart** (`product_detail_add_to_cart_button`) yang memvalidasi ketersediaan stok (termasuk jumlah item yang sudah ada di keranjang), menampilkan indikator loading saat memproses, mencegah duplikasi request, menampilkan notifikasi sukses, dan langsung memperbarui badge keranjang belanja.
+
+#### 7. Integrasi Navigasi & Router
+- Mendaftarkan rute `/product/:productId`, `/store/:storeId`, `/orders`, `/orders/:orderNumber/track`, `/orders/:orderNumber/review`, dan `/your-profile` pada [AppRouter](file:///e:/apps/heritagebatiklaweyan/heritage_batik/lib/core/router/app_router.dart).
+- Menghubungkan seluruh kartu produk (`ProductCard`) di Home, Kategori, dan Pencarian ke halaman Detail Produk.
 - Menghubungkan tombol navigasi bawah *History* (`HomeView`) dan menu *My Orders* pada profil pengguna (`ProfileView`) ke layar daftar pesanan.
 - Menghubungkan notifikasi pesanan ke daftar pesanan.
 

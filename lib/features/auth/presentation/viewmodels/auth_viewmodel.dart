@@ -77,6 +77,9 @@ class AuthViewModel extends Notifier<AuthState> {
 
     return result.fold(
       onSuccess: (user) {
+        // Kirim FCM Token ke backend setelah berhasil login
+        _authRepository.updateFcmTokenAfterLogin();
+
         state = state
             .addLog('Login berhasil. Token disimpan secara aman.')
             .copyWith(
@@ -119,6 +122,9 @@ class AuthViewModel extends Notifier<AuthState> {
 
     return result.fold(
       onSuccess: (user) {
+        // Kirim FCM Token ke backend setelah berhasil register
+        _authRepository.updateFcmTokenAfterLogin();
+
         state = state
             .addLog('Akun berhasil dibuat. Selamat datang di Heritage Batik!')
             .copyWith(

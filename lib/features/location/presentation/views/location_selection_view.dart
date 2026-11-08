@@ -19,9 +19,15 @@ class _LocationSelectionViewState extends ConsumerState<LocationSelectionView> {
   @override
   void initState() {
     super.initState();
-    // Muat lokasi segera saat layar dibuka
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(locationViewModelProvider.notifier).loadLocation();
+    // Muat lokasi segera saat layar dibuka & otomatis minta/ambil lokasi GPS jika belum diset
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final locVm = ref.read(locationViewModelProvider.notifier);
+      await locVm.loadLocation();
+      if (!mounted) return;
+      final currentLoc = ref.read(locationViewModelProvider).location;
+      if (currentLoc == null || !currentLoc.hasResolvedAddress) {
+        locVm.selectGpsLocation();
+      }
     });
   }
 
@@ -517,47 +523,23 @@ class _LocationSelectionViewState extends ConsumerState<LocationSelectionView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    selectedLocation.displayName,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: selectedLocation.isGps
-                                          ? const Color(0xFFDCFCE7)
-                                          : const Color(0xFFE2E8F0),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      selectedLocation.isGps ? 'GPS' : 'Manual',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: selectedLocation.isGps
-                                            ? const Color(0xFF15803D)
-                                            : const Color(0xFF475569),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                selectedLocation.displaySubtitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
+                              const Text(
+                                'Lokasi Pengiriman Saat Ini',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
                                   color: Color(0xFF64748B),
-                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                selectedLocation.displayName,
+                                softWrap: true,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                  height: 1.4,
                                 ),
                               ),
                             ],

@@ -6,11 +6,12 @@ import 'notification_providers.dart';
 import 'notification_state.dart';
 
 class NotificationViewModel extends Notifier<NotificationState> {
-  late final NotificationRepository _repository;
+  late NotificationRepository _repository;
 
   @override
   NotificationState build() {
     _repository = ref.watch(notificationRepositoryProvider);
+    Future.microtask(() => loadNotifications());
     return const NotificationState();
   }
 

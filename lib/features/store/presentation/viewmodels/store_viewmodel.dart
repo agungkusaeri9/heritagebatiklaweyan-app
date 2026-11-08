@@ -18,6 +18,30 @@ class StoreViewModel extends Notifier<StoreState> {
     return const StoreState();
   }
 
+  /// Mengecek koneksi ke backend hanya melalui endpoint /ping (untuk Splash Screen)
+  Future<bool> checkConnection() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    AppLogger.i('StoreViewModel: Mengecek koneksi backend melalui /ping...');
+
+    try {
+      final isOk = await _remoteDataSource.pingServer();
+      state = state.copyWith(
+        isLoading: false,
+        clearError: true,
+      );
+      AppLogger.i('StoreViewModel: Ping backend berhasil (OK)!');
+      return isOk;
+    } catch (e, stack) {
+      AppLogger.w('StoreViewModel: Ping backend gagal', e, stack);
+      final errorMsg = e is ApiException ? e.message : e.toString();
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: errorMsg,
+      );
+      return false;
+    }
+  }
+
   /// Memuat data toko, metode pembayaran, dan FAQ dari backend API ke state
   Future<void> fetchInitialData() async {
     state = state.copyWith(isLoading: true, clearError: true);

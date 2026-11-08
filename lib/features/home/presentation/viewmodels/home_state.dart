@@ -34,6 +34,7 @@ class HomeState {
   });
 
   bool get isLoading => status == HomeStatus.loading;
+  bool get isError => status == HomeStatus.error;
 
   HomeState copyWith({
     HomeStatus? status,

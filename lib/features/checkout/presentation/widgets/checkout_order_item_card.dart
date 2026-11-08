@@ -61,7 +61,10 @@ class CheckoutOrderItemCard extends StatelessWidget {
                 const SizedBox(height: 4),
 
                 // Varian / Ukuran & Kuantitas
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -78,7 +81,6 @@ class CheckoutOrderItemCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Text(
                       'Qty: ${item.qty}',
                       style: GoogleFonts.plusJakartaSans(

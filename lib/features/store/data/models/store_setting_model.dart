@@ -1,3 +1,5 @@
+import '../../../../core/constants/api_constants.dart';
+
 /// Model data untuk Pengaturan Toko (Store Settings)
 class StoreSettingModel {
   final int id;
@@ -36,6 +38,25 @@ class StoreSettingModel {
     this.updatedAt,
   });
 
+  static String? _normalizeImageUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.trim().isEmpty) return null;
+    final trimmed = rawUrl.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      final uri = Uri.tryParse(trimmed);
+      if (uri != null && (uri.host == 'localhost' || uri.host == '127.0.0.1')) {
+        final serverUri = Uri.tryParse(ApiConstants.serverUrl);
+        if (serverUri != null) {
+          return uri
+              .replace(host: serverUri.host, port: serverUri.port)
+              .toString();
+        }
+      }
+      return trimmed;
+    }
+    final cleanPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '${ApiConstants.serverUrl}$cleanPath';
+  }
+
   /// Factory untuk parsing dari JSON response backend API
   factory StoreSettingModel.fromJson(Map<String, dynamic> json) {
     final contact = json['contact'] is Map<String, dynamic>
@@ -49,27 +70,32 @@ class StoreSettingModel {
         : null;
 
     return StoreSettingModel(
-      id: 1,
+      id: (json['id'] as num?)?.toInt() ?? 1,
       name: (json['name'] as String?)?.isNotEmpty == true
           ? json['name'] as String
           : 'Heritage Batik Laweyan',
-      logoUrl: json['logo_url'] as String?,
+      logoUrl: _normalizeImageUrl(json['logo_url']?.toString()),
       description: json['description'] as String?,
       phone: contact?['phone'] as String? ?? json['phone'] as String?,
       whatsapp: contact?['whatsapp'] as String? ?? json['whatsapp'] as String?,
       email: contact?['email'] as String? ?? json['email'] as String?,
       website: contact?['website'] as String? ?? json['website'] as String?,
-      facebookUrl: socialMedia?['facebook_url'] as String? ??
+      facebookUrl:
+          socialMedia?['facebook_url'] as String? ??
           json['facebook_url'] as String?,
-      twitterUrl: socialMedia?['twitter_url'] as String? ??
+      twitterUrl:
+          socialMedia?['twitter_url'] as String? ??
           json['twitter_url'] as String?,
-      instagramUrl: socialMedia?['instagram_url'] as String? ??
+      instagramUrl:
+          socialMedia?['instagram_url'] as String? ??
           json['instagram_url'] as String?,
       address: json['address'] as String?,
       privacyPolicy:
-          policies?['privacy_policy'] as String? ?? json['privacy_policy'] as String?,
+          policies?['privacy_policy'] as String? ??
+          json['privacy_policy'] as String?,
       policy: policies?['policy'] as String? ?? json['policy'] as String?,
-      cancellationPolicy: policies?['cancellation_policy'] as String? ??
+      cancellationPolicy:
+          policies?['cancellation_policy'] as String? ??
           json['cancellation_policy'] as String?,
       updatedAt: json['updated_at'] as String?,
     );

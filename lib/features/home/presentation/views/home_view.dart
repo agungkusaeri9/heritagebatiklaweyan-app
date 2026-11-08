@@ -7,12 +7,14 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
 import '../../../cart/presentation/viewmodels/cart_providers.dart';
 import '../../../checkout/presentation/views/order_list_view.dart';
+import '../../../wishlist/presentation/views/wishlist_view.dart';
 import '../../../profile/presentation/widgets/profile_header.dart';
 import '../../../profile/presentation/widgets/profile_information.dart';
 import '../../../profile/presentation/widgets/profile_menu_list.dart';
 import '../../data/models/home_dummy_data.dart';
 import '../../../search/data/models/product_filter_model.dart';
 import '../../../search/presentation/viewmodels/search_providers.dart';
+import '../../../notification/presentation/viewmodels/notification_providers.dart';
 import '../viewmodels/home_providers.dart';
 import '../widgets/best_seller_section.dart';
 import '../widgets/category_section.dart';
@@ -23,15 +25,13 @@ import '../widgets/other_products_section.dart';
 import '../widgets/promo_carousel.dart';
 import '../widgets/recommendation_section.dart';
 import '../widgets/store_info_card.dart';
+import '../widgets/home_skeleton_loading.dart';
 
 /// Halaman Utama (Home / Dashboard Screen) E-Commerce Heritage Batik Laweyan
 class HomeView extends ConsumerStatefulWidget {
   final int initialTabIndex;
 
-  const HomeView({
-    super.key,
-    this.initialTabIndex = 0,
-  });
+  const HomeView({super.key, this.initialTabIndex = 0});
 
   @override
   ConsumerState<HomeView> createState() => _HomeViewState();
@@ -47,6 +47,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
     _homeScrollController.addListener(_onHomeScroll);
+    Future.microtask(() {
+      if (ref.read(authViewModelProvider).isAuthenticated) {
+        ref.read(notificationViewModelProvider.notifier).loadNotifications();
+      }
+    });
   }
 
   void _onHomeScroll() {
@@ -76,14 +81,16 @@ class _HomeViewState extends ConsumerState<HomeView> {
       return;
     }
 
-    final success = await ref.read(cartViewModelProvider.notifier).addToCart(
-      productId,
-      quantity: 1,
-      onError: (message) {
-        if (!mounted) return;
-        AppSnackBar.showError(context, message);
-      },
-    );
+    final success = await ref
+        .read(cartViewModelProvider.notifier)
+        .addToCart(
+          productId,
+          quantity: 1,
+          onError: (message) {
+            if (!mounted) return;
+            AppSnackBar.showError(context, message);
+          },
+        );
 
     if (success && mounted) {
       AppSnackBar.showSuccess(
@@ -93,7 +100,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
     }
   }
 
-  /// Menangani klik banner promosi
+  /// Menangani klik banner promosi sesuai target_type (product, category, url, none)
   void _handleBannerTap(PromoBannerItem banner) {
     if (banner.targetType == 'product' && banner.productId != null) {
       context.push('/product/${banner.productId}');
@@ -110,9 +117,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
     } else if (banner.targetType == 'url' &&
         banner.targetUrl != null &&
         banner.targetUrl!.isNotEmpty) {
-      AppSnackBar.showSuccess(context, 'Membuka promo: ${banner.title}');
+      // Buka URL eksternal menggunakan package url_launcher jika tersedia, atau tampilkan info URL
+      AppSnackBar.showSuccess(context, 'Membuka link: ${banner.targetUrl}');
     } else {
-      AppSnackBar.showSuccess(context, 'Promo: ${banner.title}');
+      // Jika murni gambar tanpa target aksi, tidak melakukan apa-apa (silent)
+      return;
     }
   }
 
@@ -158,7 +167,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: () async {
-        await ref.read(homeViewModelProvider.notifier).initHome(isRefresh: true);
+        await Future.wait([
+          ref.read(homeViewModelProvider.notifier).initHome(isRefresh: true),
+          ref.read(notificationViewModelProvider.notifier).loadNotifications(isRefresh: true),
+        ]);
         if (mounted) {
           AppSnackBar.showSuccess(context, 'Halaman beranda diperbarui.');
         }
@@ -188,7 +200,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   extra: searchState.filter,
                 );
                 if (result != null) {
-                  ref.read(searchViewModelProvider.notifier).applyFilter(result);
+                  ref
+                      .read(searchViewModelProvider.notifier)
+                      .applyFilter(result);
                   if (mounted) {
                     context.push('/search');
                   }
@@ -198,65 +212,80 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
             const SizedBox(height: 6),
 
-            // 3. Banner Promo Carousel dengan Indikator Dots
-            PromoCarousel(
-              banners: homeState.banners.isNotEmpty
-                  ? homeState.banners
-                  : HomeDummyData.banners,
-              onBannerTap: (index) {
-                final banners = homeState.banners.isNotEmpty
-                    ? homeState.banners
-                    : HomeDummyData.banners;
-                if (index < banners.length) {
-                  _handleBannerTap(banners[index]);
-                }
-              },
-            ),
+            if (homeState.isLoading &&
+                homeState.recommendations.isEmpty &&
+                homeState.otherProducts.isEmpty)
+              const HomeSkeletonLoading()
+            else if (homeState.isError &&
+                homeState.recommendations.isEmpty &&
+                homeState.otherProducts.isEmpty)
+              _buildServerErrorSection(
+                homeState.errorMessage ??
+                    'Maaf, server sedang mengalami gangguan. Silakan coba lagi.',
+              )
+            else ...[
+              // 3. Banner Promo Carousel dengan Indikator Dots
+              if (homeState.banners.isNotEmpty) ...[
+                PromoCarousel(
+                  banners: homeState.banners,
+                  onBannerTap: (index) {
+                    if (index < homeState.banners.length) {
+                      _handleBannerTap(homeState.banners.length > index ? homeState.banners[index] : homeState.banners.first);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
 
-            const SizedBox(height: 10),
+              // 4. Information Card (Toko & Jarak + Poin URBatik)
+              StoreInfoCard(onStoreTap: () => context.push('/store/1')),
 
-            // 4. Information Card (Toko & Jarak + Poin URBatik)
-            const StoreInfoCard(),
+              const SizedBox(height: 12),
 
-            const SizedBox(height: 12),
+              // 5. Category Section (Integrasi Backend & Filter Produk)
+              CategorySection(
+                categories: homeState.categories,
+                selectedCategoryId: homeState.selectedCategoryId,
+                onCategorySelected: (cat) {
+                  context.push('/category-products', extra: cat);
+                },
+                onSeeAllTap: () {
+                  context.push('/categories');
+                },
+              ),
 
-            // 5. Category Section (Integrasi Backend & Filter Produk)
-            CategorySection(
-              categories: homeState.categories,
-              selectedCategoryId: homeState.selectedCategoryId,
-              onCategorySelected: (cat) {
-                context.push('/category-products', extra: cat);
-              },
-              onSeeAllTap: () {
-                context.push('/categories');
-              },
-            ),
+              const SizedBox(height: 14),
 
-            const SizedBox(height: 14),
+              // 6. Recommendation Section (Daftar Produk Rekomendasi Scroll Horizontal)
+              RecommendationSection(
+                products: homeState.recommendations,
+                onProductTap: (product) =>
+                    context.push('/product/${product.id}', extra: product),
+                onAddToCart: _handleAddToCart,
+              ),
 
-            // 6. Recommendation Section (Daftar Produk Rekomendasi Scroll Horizontal)
-            RecommendationSection(
-              products: homeState.recommendations,
-              onAddToCart: _handleAddToCart,
-            ),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
+              // 7. Best Seller Section (Daftar Produk Terlaris Scroll Horizontal)
+              BestSellerSection(
+                products: homeState.bestSellers,
+                onProductTap: (product) =>
+                    context.push('/product/${product.id}', extra: product),
+                onAddToCart: _handleAddToCart,
+              ),
 
-            // 7. Best Seller Section (Daftar Produk Terlaris Scroll Horizontal)
-            BestSellerSection(
-              products: homeState.bestSellers,
-              onAddToCart: _handleAddToCart,
-            ),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
-
-            // 8. Other Products Section (Semua Produk dengan Paginate 10 & Infinite Scroll)
-            OtherProductsSection(
-              products: homeState.otherProducts,
-              isLoadingMore: homeState.isLoadingMore,
-              hasMore: homeState.hasMoreOtherProducts,
-              onAddToCart: _handleAddToCart,
-            ),
+              // 8. Other Products Section (Semua Produk dengan Paginate 10 & Infinite Scroll)
+              OtherProductsSection(
+                products: homeState.otherProducts,
+                isLoadingMore: homeState.isLoadingMore,
+                hasMore: homeState.hasMoreOtherProducts,
+                onProductTap: (product) =>
+                    context.push('/product/${product.id}', extra: product),
+                onAddToCart: _handleAddToCart,
+              ),
+            ],
 
             // Ruang bawah agar konten tidak menempel ke bilah navigasi bawah
             const SizedBox(height: 24),
@@ -266,14 +295,92 @@ class _HomeViewState extends ConsumerState<HomeView> {
     );
   }
 
+  /// Menampilkan informasi apabila server sedang mengalami gangguan / trouble
+  Widget _buildServerErrorSection(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.error.withValues(alpha: 0.25),
+            width: 1.2,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cloud_off_rounded,
+                size: 28,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Server Sedang Mengalami Gangguan',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: () {
+                ref
+                    .read(homeViewModelProvider.notifier)
+                    .initHome(isRefresh: true);
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba Lagi'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Tampilan Tab Wishlist (Koleksi Favorit Pengguna)
   Widget _buildWishlistTab() {
-    return _buildPlaceholderTab(
-      icon: Icons.favorite_outline_rounded,
-      title: 'Wishlist Anda Masih Kosong',
-      subtitle:
-          'Simpan motif batik favorit Anda di sini untuk mempermudah pembelian berikutnya.',
-      buttonText: 'Cari Motif Favorit',
+    return WishlistView(
+      embedded: true,
+      onBackTap: () {
+        setState(() {
+          _currentTabIndex = 0;
+        });
+      },
     );
   }
 
@@ -289,89 +396,18 @@ class _HomeViewState extends ConsumerState<HomeView> {
     );
   }
 
-  /// Tampilan Tab Placeholder yang Rapi untuk Wishlist & History
-  Widget _buildPlaceholderTab({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    String buttonText = 'Mulai Belanja Batik',
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 36,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13.5,
-                color: const Color(0xFF64748B),
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _currentTabIndex = 0; // Kembali ke Tab Home
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-              child: Text(buttonText),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// Tampilan Tab Akun Pengguna (Account)
   /// Terintegrasi dengan ProfileInformation dan ProfileMenuList (8 Menu Pengaturan)
   Widget _buildAccountTab() {
     final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
 
-    final String displayName = (user?.name != null && user!.name.trim().isNotEmpty)
+    final String displayName =
+        (user?.name != null && user!.name.trim().isNotEmpty)
         ? user.name
         : (user?.username != null && user!.username.trim().isNotEmpty)
-            ? user.username
-            : 'Agung Kusaeri';
+        ? user.username
+        : 'Agung Kusaeri';
 
     final String? avatarUrl = user?.avatarUrl;
 
@@ -418,7 +454,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   onLogout: () async {
                     await ref.read(authViewModelProvider.notifier).logout();
                     if (!mounted) return;
-                    AppSnackBar.showSuccess(context, 'Berhasil keluar dari akun.');
+                    AppSnackBar.showSuccess(
+                      context,
+                      'Berhasil keluar dari akun.',
+                    );
                     context.go('/login');
                   },
                 ),

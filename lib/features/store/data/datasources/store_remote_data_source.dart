@@ -8,6 +8,7 @@ import '../models/payment_method_model.dart';
 import '../models/store_setting_model.dart';
 
 abstract class StoreRemoteDataSource {
+  Future<bool> pingServer();
   Future<StoreSettingModel> getStoreSetting();
   Future<StoreSettingModel> getPrivacyPolicy();
   Future<List<PaymentMethodModel>> getPaymentMethods();
@@ -23,6 +24,25 @@ class StoreRemoteDataSourceImpl implements StoreRemoteDataSource {
     required this.dio,
     required this.dioClient,
   });
+
+  @override
+  Future<bool> pingServer() async {
+    try {
+      AppLogger.d('StoreRemoteDataSource: Mengecek koneksi ping ke ${ApiConstants.ping}');
+      final response = await dio.get(ApiConstants.ping);
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode >= 200 && statusCode < 300) {
+        return true;
+      }
+      throw const ApiException(message: 'Respon server ping tidak valid');
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Gagal melakukan ping ke server', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal terhubung ke server: $e');
+    }
+  }
 
   @override
   Future<StoreSettingModel> getStoreSetting() async {

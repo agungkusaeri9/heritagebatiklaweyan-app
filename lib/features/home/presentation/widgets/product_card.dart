@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_snackbar.dart';
+import '../../../wishlist/presentation/viewmodels/wishlist_providers.dart';
 import '../../data/models/home_dummy_data.dart';
 
 /// Reusable Widget: ProductCard
 /// Kartu produk batik dengan gambar network / placeholder visual, badge diskon, harga strikethrough, dan status favorit
-class ProductCard extends StatefulWidget {
+class ProductCard extends ConsumerStatefulWidget {
   final ProductItem product;
   final double? width;
   final ValueChanged<ProductItem>? onProductTap;
@@ -22,24 +26,30 @@ class ProductCard extends StatefulWidget {
   });
 
   @override
-  State<ProductCard> createState() => _ProductCardState();
+  ConsumerState<ProductCard> createState() => _ProductCardState();
 }
 
-class _ProductCardState extends State<ProductCard> {
-  late bool _isFavorite;
+class _ProductCardState extends ConsumerState<ProductCard> {
+  bool _isTogglingWishlist = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _isFavorite = widget.product.isFavorite;
-  }
+  Future<void> _handleToggleWishlist() async {
+    if (_isTogglingWishlist) return;
 
-  @override
-  void didUpdateWidget(covariant ProductCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.product.isFavorite != widget.product.isFavorite) {
-      _isFavorite = widget.product.isFavorite;
-    }
+    final productIdInt = int.tryParse(widget.product.id) ?? 0;
+    if (productIdInt <= 0) return;
+
+    setState(() => _isTogglingWishlist = true);
+    final next = await ref
+        .read(wishlistViewModelProvider.notifier)
+        .toggleWishlist(
+          productIdInt,
+          onError: (msg) {
+            if (mounted) AppSnackBar.showError(context, msg);
+          },
+        );
+    if (!mounted) return;
+    setState(() => _isTogglingWishlist = false);
+    widget.onFavoriteToggle?.call(next);
   }
 
   String _formatCurrency(double amount) {
@@ -111,16 +121,18 @@ class _ProductCardState extends State<ProductCard> {
     final hasDiscount = widget.product.originalPrice > widget.product.discountedPrice &&
         widget.product.discountPercentage > 0;
 
+    final wishlistIds = ref.watch(wishlistIdsProvider);
+    final bool isWishlisted =
+        wishlistIds.contains(widget.product.id) || widget.product.isFavorite;
+
     return GestureDetector(
       onTap: () {
         if (widget.onProductTap != null) {
           widget.onProductTap!(widget.product);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Detail: ${widget.product.name}'),
-              duration: const Duration(seconds: 1),
-            ),
+        } else if (GoRouter.maybeOf(context) != null) {
+          context.push(
+            '/product/${widget.product.id}',
+            extra: widget.product,
           );
         }
       },
@@ -208,14 +220,7 @@ class _ProductCardState extends State<ProductCard> {
                     top: 8,
                     right: 8,
                     child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isFavorite = !_isFavorite;
-                        });
-                        if (widget.onFavoriteToggle != null) {
-                          widget.onFavoriteToggle!(_isFavorite);
-                        }
-                      },
+                      onTap: _handleToggleWishlist,
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
@@ -229,11 +234,11 @@ class _ProductCardState extends State<ProductCard> {
                           ],
                         ),
                         child: Icon(
-                          _isFavorite
+                          isWishlisted
                               ? Icons.favorite_rounded
                               : Icons.favorite_outline_rounded,
                           size: 17,
-                          color: _isFavorite
+                          color: isWishlisted
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF64748B),
                         ),

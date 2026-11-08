@@ -77,7 +77,8 @@ class HomeViewModel extends Notifier<HomeState> {
       state = state.copyWith(
         status: HomeStatus.error,
         isRefreshing: false,
-        errorMessage: 'Gagal memuat data beranda. Silakan coba lagi.',
+        errorMessage:
+            'Maaf, server sedang mengalami gangguan atau kendala koneksi. Silakan muat ulang halaman.',
       );
     }
   }

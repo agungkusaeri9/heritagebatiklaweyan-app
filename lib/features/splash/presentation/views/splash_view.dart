@@ -45,22 +45,21 @@ class _SplashViewState extends ConsumerState<SplashView>
   }
 
   Future<void> _handleSplashNavigation() async {
-    // Ambil data toko, metode pembayaran, dan FAQ dari backend ke Riverpod State
-    final fetchFuture =
-        ref.read(storeViewModelProvider.notifier).fetchInitialData();
+    // Hanya cek koneksi ping ke backend (tanpa mengambil setting, metode pembayaran, atau FAQ)
+    final pingFuture =
+        ref.read(storeViewModelProvider.notifier).checkConnection();
 
     // Waktu minimum tampilan splash screen (1.5 detik) untuk menjaga visual tetap mulus
     final minDisplayFuture = Future.delayed(const Duration(milliseconds: 1500));
 
-    // Tunggu pengambilan data ke state dan durasi animasi minimal selesai bersamaan
-    await Future.wait([fetchFuture, minDisplayFuture]);
+    // Tunggu pengecekan ping dan durasi animasi minimal selesai bersamaan
+    final results = await Future.wait([pingFuture, minDisplayFuture]);
+    final isPingOk = results[0] as bool;
 
     if (!mounted) return;
 
-    final storeState = ref.read(storeViewModelProvider);
-
-    // Hanya lanjutkan navigasi jika tidak ada error koneksi backend
-    if (storeState.errorMessage == null) {
+    // Lanjutkan navigasi jika ping ke backend OK
+    if (isPingOk) {
       _proceedToNextScreen();
     }
   }
@@ -172,45 +171,55 @@ class _SplashViewState extends ConsumerState<SplashView>
                           ],
                         )
                       : (storeState.errorMessage != null
-                          ? Container(
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 24),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF2F2),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppColors.error.withValues(alpha: 0.3),
-                                  width: 1,
+                          ? GestureDetector(
+                              onTap: _handleSplashNavigation,
+                              child: Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.wifi_off_rounded,
-                                    color: AppColors.error,
-                                    size: 15,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color:
+                                        AppColors.error.withValues(alpha: 0.3),
+                                    width: 1,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      _getUserFriendlyMessage(
-                                        storeState.errorMessage,
-                                      ),
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        color: AppColors.error,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.wifi_off_rounded,
+                                      color: AppColors.error,
+                                      size: 15,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        _getUserFriendlyMessage(
+                                          storeState.errorMessage,
+                                        ),
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppColors.error,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.refresh_rounded,
+                                      color: AppColors.error,
+                                      size: 15,
+                                    ),
+                                  ],
+                                ),
                               ),
                             )
                           : const SizedBox.shrink()),

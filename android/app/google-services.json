@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "90081075018",
+    "project_id": "heritagebatiklaweyan-testing",
+    "storage_bucket": "heritagebatiklaweyan-testing.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:90081075018:android:2eafd618fa26e8ad67ebb3",
+        "android_client_info": {
+          "package_name": "com.example.heritage_batik"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgWBuR86tIEsti2v6Dxyr26RFvhOyJ4B4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

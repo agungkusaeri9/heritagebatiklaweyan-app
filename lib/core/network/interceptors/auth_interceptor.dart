@@ -2,12 +2,15 @@ import 'package:dio/dio.dart';
 import '../../constants/api_constants.dart';
 import '../../logging/app_logger.dart';
 import '../../storage/secure_storage_service.dart';
+import '../session_expiry_bus.dart';
 
 /// Interceptor untuk inject JWT Token ke Authorization header
 /// dan menangani refresh token otomatis saat menerima 401 Unauthorized.
 class AuthInterceptor extends QueuedInterceptor {
   final ISecureStorageService secureStorage;
   final Dio dio;
+
+  bool _handlingSessionExpiry = false;
 
   AuthInterceptor({
     required this.secureStorage,
@@ -49,17 +52,25 @@ class AuthInterceptor extends QueuedInterceptor {
         path.contains(ApiConstants.register) ||
         path.contains('/register');
 
+    // Endpoint logout tidak boleh memicu alur session-expired (cegah rekursi)
+    final isLogoutEndpoint = path.contains(ApiConstants.logout) ||
+        path.contains('/logout');
+
     if (isPublicEndpoint) {
       return handler.next(err);
     }
 
     // Tangani token expired (401 Unauthorized)
-    if (err.response?.statusCode == 401) {
+    if (err.response?.statusCode == 401 && !isLogoutEndpoint) {
       AppLogger.w('AuthInterceptor: 401 Unauthorized detected. Attempting token refresh...');
       
       final refreshToken = await secureStorage.getRefreshToken();
       if (refreshToken != null && refreshToken.isNotEmpty) {
         try {
+          // Refresh endpoint berada di balik auth:sanctum, sehingga butuh access token
+          // yang sedang kedaluwarsa tetap dikirim sebagai Bearer.
+          final expiredAccessToken = await secureStorage.getAccessToken();
+
           // Lakukan request refresh token dengan Dio instance baru agar tidak loop interceptor
           final refreshDio = Dio(
             BaseOptions(
@@ -71,15 +82,30 @@ class AuthInterceptor extends QueuedInterceptor {
           final response = await refreshDio.post(
             ApiConstants.refreshToken,
             data: {'refresh_token': refreshToken},
+            options: Options(
+              headers: {
+                if (expiredAccessToken != null && expiredAccessToken.isNotEmpty)
+                  'Authorization': 'Bearer $expiredAccessToken',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            ),
           );
 
           if (response.statusCode == 200 && response.data != null) {
-            final newAccessToken = response.data['access_token'] as String?;
-            final newRefreshToken = response.data['refresh_token'] as String?;
+            // Kontrak ApiResponse: { meta: {...}, data: { access_token, token_type } }
+            final data = response.data;
+            final payload = data is Map && data['data'] is Map ? data['data'] : data;
+            final newAccessToken = payload is Map
+                ? payload['access_token'] as String?
+                : null;
+            final newRefreshToken = payload is Map
+                ? payload['refresh_token'] as String?
+                : null;
 
-            if (newAccessToken != null) {
+            if (newAccessToken != null && newAccessToken.isNotEmpty) {
               await secureStorage.saveAccessToken(newAccessToken);
-              if (newRefreshToken != null) {
+              if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
                 await secureStorage.saveRefreshToken(newRefreshToken);
               }
 
@@ -88,10 +114,16 @@ class AuthInterceptor extends QueuedInterceptor {
               // Retry request sebelumnya dengan token baru
               final options = err.requestOptions;
               options.headers['Authorization'] = 'Bearer $newAccessToken';
-              
+
               final clonedResponse = await dio.fetch(options);
               return handler.resolve(clonedResponse);
             }
+
+            AppLogger.w('AuthInterceptor: Refresh response missing access_token. Session expired.');
+            await _expireSession();
+          } else {
+            AppLogger.w('AuthInterceptor: Refresh token request returned ${response.statusCode}. Session expired.');
+            await _expireSession();
           }
         } catch (refreshError, stack) {
           AppLogger.e(
@@ -99,15 +131,36 @@ class AuthInterceptor extends QueuedInterceptor {
             error: refreshError,
             stackTrace: stack,
           );
-          // Hapus token kadaluarsa
-          await secureStorage.clearAuthTokens();
+          await _expireSession();
         }
       } else {
         AppLogger.w('AuthInterceptor: No refresh token available. Session expired.');
-        await secureStorage.clearAuthTokens();
+        await _expireSession();
       }
     }
 
     return handler.next(err);
+  }
+
+  /// Bersihkan token dan beri tahu lapisan auth agar state berubah ke unauthenticated
+  /// (memicu redirect ke /login lewat router guard). Idempotent.
+  Future<void> _expireSession() async {
+    if (_handlingSessionExpiry) return;
+    _handlingSessionExpiry = true;
+
+    try {
+      await secureStorage.clearAuthTokens();
+    } catch (e, stack) {
+      AppLogger.e('AuthInterceptor: Failed to clear tokens', error: e, stackTrace: stack);
+    }
+
+    try {
+      SessionExpiryBus.notifyExpired();
+    } catch (e, stack) {
+      AppLogger.e('AuthInterceptor: session expiry notify failed', error: e, stackTrace: stack);
+    } finally {
+      // Izinkan sesi berikutnya (setelah login ulang) memicu expire lagi.
+      _handlingSessionExpiry = false;
+    }
   }
 }

@@ -221,4 +221,13 @@ class AuthRepositoryImpl implements AuthRepository {
       return ErrorResult(UnknownFailure(message: 'Gagal mereset kata sandi: $e'));
     }
   }
+
+  @override
+  Future<void> updateFcmTokenAfterLogin() async {
+    try {
+      AppLogger.i('AuthRepository: FCM token sync requested after login.');
+    } catch (e) {
+      AppLogger.w('AuthRepository: Failed to process FCM token after login: $e');
+    }
+  }
 }

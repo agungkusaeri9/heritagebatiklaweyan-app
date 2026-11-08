@@ -113,6 +113,8 @@ class OrderListItemCard extends StatelessWidget {
                     // Ringkasan Jumlah Produk & Total Kuantitas
                     Text(
                       '$distinctProducts ${distinctProducts == 1 ? 'Product' : 'Products'} · Total Qty: $totalQty pcs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -265,7 +267,7 @@ class OrderListItemCard extends StatelessWidget {
       );
     }
 
-    // 2. Completed Orders -> Sembunyikan Track Order, tampilkan status Completed
+    // 2. Completed Orders -> Tampilkan badge Completed (ulasan dilakukan per produk di halaman Detail Pesanan)
     if (order.isCompletedOrder) {
       return Container(
         key: Key('completed_badge_${order.orderNumber}'),

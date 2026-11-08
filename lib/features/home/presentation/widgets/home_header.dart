@@ -29,7 +29,17 @@ class HomeHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locationState = ref.watch(locationViewModelProvider);
     final currentLocation = locationState.location;
-    final addressText = currentLocation?.displayName ?? 'Kampung Batik Laweyan, Solo';
+    final bool isAddressLoading =
+        locationState.isLoading ||
+        locationState.isLocatingGps ||
+        (locationState.isSyncingWithBackend &&
+            (currentLocation == null || !currentLocation.hasResolvedAddress)) ||
+        (currentLocation != null && !currentLocation.hasResolvedAddress);
+
+    final addressText =
+        (currentLocation != null && currentLocation.hasResolvedAddress)
+        ? currentLocation.displayName
+        : 'Kampung Batik Laweyan, Solo';
     final liveUnreadCount = ref.watch(unreadNotificationCountProvider);
     final effectiveNotificationCount = notificationCount ?? liveUnreadCount;
     final liveCartCount = ref.watch(cartItemCountProvider);
@@ -70,28 +80,34 @@ class HomeHeader extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            addressText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0F172A),
+                    if (isAddressLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 3),
+                        child: _DeliveryAddressSkeleton(),
+                      )
+                    else
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              addressText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 18,
-                          color: Color(0xFF64748B),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                            color: Color(0xFF64748B),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -138,11 +154,7 @@ class HomeHeader extends ConsumerWidget {
             customBorder: const CircleBorder(),
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: Icon(
-                icon,
-                size: 25,
-                color: const Color(0xFF1E293B),
-              ),
+              child: Icon(icon, size: 25, color: const Color(0xFF1E293B)),
             ),
           ),
         ),
@@ -171,6 +183,59 @@ class HomeHeader extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Widget Skeleton Shimmer untuk teks alamat pengiriman pada HomeHeader
+class _DeliveryAddressSkeleton extends StatefulWidget {
+  const _DeliveryAddressSkeleton();
+
+  @override
+  State<_DeliveryAddressSkeleton> createState() =>
+      _DeliveryAddressSkeletonState();
+}
+
+class _DeliveryAddressSkeletonState extends State<_DeliveryAddressSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _opacityAnimation = Tween<double>(
+      begin: 0.35,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacityAnimation,
+      child: Row(
+        children: [
+          Container(
+            width: 170,
+            height: 15,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

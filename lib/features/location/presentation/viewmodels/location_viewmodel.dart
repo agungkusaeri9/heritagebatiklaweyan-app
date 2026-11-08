@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../data/services/gps_service.dart';
 import '../../domain/repositories/location_repository.dart';
@@ -14,27 +15,81 @@ class LocationViewModel extends Notifier<LocationState> {
     _locationRepository = ref.watch(locationRepositoryProvider);
     _gpsService = ref.watch(gpsServiceProvider);
 
-    // Muat lokasi (cache-first) segera setelah viewmodel siap
-    Future.microtask(() => loadLocation());
+    // Muat lokasi dan otomatis deteksi GPS saat aplikasi dibuka
+    Future.microtask(() => initializeLocationOnAppStart());
 
-    return const LocationState();
+    return const LocationState(isSyncingWithBackend: true);
+  }
+
+  /// Inisialisasi lokasi saat aplikasi dibuka: muat cache/backend & auto-refresh GPS jika izin aktif
+  Future<void> initializeLocationOnAppStart() async {
+    await loadLocation();
+    await autoSyncGpsIfPermitted();
+  }
+
+  /// Otomatis ambil latitude & longitude serta alamat Geoapify jika izin lokasi sudah diberikan
+  Future<void> autoSyncGpsIfPermitted() async {
+    try {
+      final isServiceEnabled = await _gpsService.isLocationServiceEnabled();
+      if (!isServiceEnabled) return;
+
+      final permission = await _gpsService.checkPermission();
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        return;
+      }
+
+      AppLogger.i(
+        'LocationViewModel: Auto-sync GPS perangkat saat aplikasi dibuka...',
+      );
+      final gpsResult = await _gpsService.getCurrentPosition();
+      if (!gpsResult.isSuccess || gpsResult.position == null) return;
+
+      final pos = gpsResult.position!;
+      final saveResult = await _locationRepository.saveGpsLocation(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
+
+      saveResult.fold(
+        onSuccess: (savedLocation) {
+          state = state.copyWith(
+            location: savedLocation,
+            isSyncingWithBackend: false,
+            clearError: true,
+          );
+          AppLogger.i(
+            'LocationViewModel: Auto-sync GPS berhasil: ${savedLocation.displayName}',
+          );
+        },
+        onFailure: (_) {},
+      );
+    } catch (e) {
+      AppLogger.w('LocationViewModel: Gagal auto-sync GPS: $e');
+    }
   }
 
   /// Memuat lokasi pengguna (Cache-first, lalu sinkronisasi backend)
   Future<void> loadLocation({bool forceBackendSync = false}) async {
-    // 1. Muat cache lokal segera agar UI langsung menampilkan lokasi terakhir
+    // 1. Muat cache lokal segera HANYA jika sudah memiliki nama alamat (bukan koordinat mentah)
     final cached = _locationRepository.getCachedLocation();
-    if (cached != null) {
+    if (cached != null && cached.hasResolvedAddress) {
       state = state.copyWith(
         location: cached,
         status: LocationStatus.initial,
+        isSyncingWithBackend: true,
       );
-      AppLogger.i('LocationViewModel: Lokasi lokal berhasil dimuat dari cache: ${cached.displayName}');
+      AppLogger.i(
+        'LocationViewModel: Lokasi lokal berhasil dimuat dari cache: ${cached.displayName}',
+      );
+    } else {
+      state = state.copyWith(isSyncingWithBackend: true);
     }
 
-    // 2. Sinkronisasi dengan backend jika tersedia
-    state = state.copyWith(isSyncingWithBackend: true);
-    final result = await _locationRepository.getUserLocation(forceBackendSync: forceBackendSync);
+    // 2. Sinkronisasi dengan backend & resolve reverse geocoding jika masih koordinat
+    final result = await _locationRepository.getUserLocation(
+      forceBackendSync: forceBackendSync,
+    );
 
     result.fold(
       onSuccess: (remoteLocation) {
@@ -45,7 +100,9 @@ class LocationViewModel extends Notifier<LocationState> {
         );
       },
       onFailure: (failure) {
-        AppLogger.w('LocationViewModel: Gagal sinkronisasi lokasi dengan backend: ${failure.message}');
+        AppLogger.w(
+          'LocationViewModel: Gagal sinkronisasi lokasi dengan backend: ${failure.message}',
+        );
         state = state.copyWith(
           isSyncingWithBackend: false,
           // Jangan timpa lokasi jika cache sudah ada
@@ -92,14 +149,12 @@ class LocationViewModel extends Notifier<LocationState> {
 
     final pos = gpsResult.position!;
 
-    // 2. Simpan koordinat ke local storage dan sinkronkan ke backend
+    // 2. Ambil alamat lengkap dari endpoint Geoapify backend, simpan ke local storage & sinkronkan ke backend
     state = state.copyWith(status: LocationStatus.saving);
 
     final saveResult = await _locationRepository.saveGpsLocation(
       latitude: pos.latitude,
       longitude: pos.longitude,
-      address: 'Koordinat (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})',
-      label: 'Lokasi Perangkat (GPS)',
     );
 
     return saveResult.fold(
@@ -178,9 +233,6 @@ class LocationViewModel extends Notifier<LocationState> {
 
   /// Bersihkan pesan feedback error/success
   void clearMessages() {
-    state = state.copyWith(
-      clearError: true,
-      clearSuccess: true,
-    );
+    state = state.copyWith(clearError: true, clearSuccess: true);
   }
 }

@@ -5,6 +5,7 @@ import 'package:heritage_batik/features/cart/data/models/cart_item_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/checkout_result_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/customer_address_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/order_pagination_model.dart';
+import 'package:heritage_batik/features/checkout/data/models/order_review_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/region_model.dart';
 import 'package:heritage_batik/features/checkout/data/models/shipping_type_model.dart';
 import 'package:heritage_batik/features/checkout/data/repositories/checkout_repository.dart';
@@ -129,6 +130,23 @@ class MockCheckoutRepository implements CheckoutRepository {
       totalAmount: 420000.0,
       paymentMethod: 'BCA Virtual Account',
       paymentProof: 'proofs/sample.jpg',
+    );
+  }
+
+  @override
+  Future<CheckoutResultModel> submitOrderReviews({
+    required CheckoutResultModel order,
+    required int transactionRating,
+    String? transactionComment,
+    required List<OrderItemReviewModel> productReviews,
+  }) async {
+    if (shouldThrow) throw Exception('Submit order reviews failed');
+    return order.copyWith(
+      isReviewedExplicit: true,
+      reviewedCount: productReviews.length,
+      transactionRating: transactionRating,
+      transactionReviewComment: transactionComment,
+      reviews: productReviews,
     );
   }
 

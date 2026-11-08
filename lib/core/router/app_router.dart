@@ -14,6 +14,9 @@ import '../../features/home/data/models/home_dummy_data.dart';
 import '../../features/home/presentation/views/category_list_view.dart';
 import '../../features/home/presentation/views/category_products_view.dart';
 import '../../features/home/presentation/views/home_view.dart';
+import '../../features/home/presentation/views/product_detail_view.dart';
+import '../../features/home/presentation/views/virtual_try_on_list_view.dart';
+import '../../features/home/presentation/views/virtual_try_on_detail_view.dart';
 import '../../features/location/presentation/viewmodels/location_providers.dart';
 import '../../features/location/presentation/views/location_selection_view.dart';
 import '../../features/onboarding/presentation/views/onboarding_view.dart';
@@ -22,6 +25,7 @@ import '../../features/cart/presentation/views/cart_view.dart';
 import '../../features/checkout/data/models/checkout_result_model.dart';
 import '../../features/checkout/presentation/viewmodels/order_list_state.dart';
 import '../../features/checkout/presentation/views/checkout_view.dart';
+import '../../features/checkout/presentation/views/leave_review_view.dart';
 import '../../features/checkout/presentation/views/order_detail_view.dart';
 import '../../features/checkout/presentation/views/order_list_view.dart';
 import '../../features/checkout/presentation/views/payment_success_view.dart';
@@ -41,6 +45,9 @@ import '../../features/search/data/models/product_filter_model.dart';
 import '../../features/search/presentation/views/filter_view.dart';
 import '../../features/search/presentation/views/search_view.dart';
 import '../../features/splash/presentation/views/splash_view.dart';
+import '../../features/store/data/models/store_setting_model.dart';
+import '../../features/store/presentation/views/store_detail_view.dart';
+import '../../features/wishlist/presentation/views/wishlist_view.dart';
 import '../storage/storage_providers.dart';
 
 final routerKey = GlobalKey<NavigatorState>();
@@ -176,6 +183,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/product/:productId',
+        name: 'product-detail',
+        builder: (context, state) {
+          final productId = state.pathParameters['productId'] ?? '';
+          final initialProduct = state.extra is ProductItem
+              ? state.extra as ProductItem
+              : null;
+          return ProductDetailView(
+            productId: productId,
+            initialProduct: initialProduct,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/store/:storeId',
+        name: 'store-detail',
+        builder: (context, state) {
+          final storeId =
+              int.tryParse(state.pathParameters['storeId'] ?? '1') ?? 1;
+          final initialStore = state.extra is StoreSettingModel
+              ? state.extra as StoreSettingModel
+              : null;
+          return StoreDetailView(
+            storeId: storeId,
+            initialStore: initialStore,
+          );
+        },
+      ),
+      GoRoute(
         path: '/permissions',
         name: 'permissions',
         builder: (context, state) => const PermissionsView(),
@@ -199,6 +235,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/your-profile',
         name: 'your-profile',
         builder: (context, state) => const YourProfileView(),
+      ),
+      GoRoute(
+        path: '/wishlist',
+        name: 'wishlist',
+        builder: (context, state) => const WishlistView(),
       ),
       GoRoute(
         path: '/settings',
@@ -315,6 +356,60 @@ final routerProvider = Provider<GoRouter>((ref) {
           return UploadPaymentProofView(
             orderNumber: orderNumber,
             order: order,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/orders/:orderNumber/review',
+        name: 'leave-review',
+        builder: (context, state) {
+          final orderNumber = state.pathParameters['orderNumber'] ?? '';
+          CheckoutResultModel? order;
+          CheckoutOrderItemModel? targetItem;
+          int? targetProductId = int.tryParse(
+            state.uri.queryParameters['productId'] ?? '',
+          );
+
+          if (state.extra is CheckoutResultModel) {
+            order = state.extra as CheckoutResultModel;
+          } else if (state.extra is Map) {
+            final map = state.extra as Map;
+            if (map['order'] is CheckoutResultModel) {
+              order = map['order'] as CheckoutResultModel;
+            }
+            if (map['item'] is CheckoutOrderItemModel) {
+              targetItem = map['item'] as CheckoutOrderItemModel;
+            }
+            if (map['productId'] is int) {
+              targetProductId = map['productId'] as int;
+            }
+          }
+
+          return LeaveReviewView(
+            orderNumber: orderNumber,
+            initialOrder: order,
+            targetItem: targetItem,
+            targetProductId: targetProductId,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/virtual-try-ons',
+        name: 'virtual-try-ons',
+        builder: (context, state) => const VirtualTryOnListView(),
+      ),
+      GoRoute(
+        path: '/virtual-try-ons/:id',
+        name: 'virtual-try-on-detail',
+        builder: (context, state) {
+          final idStr = state.pathParameters['id'] ?? '';
+          final tryOnId = int.tryParse(idStr) ?? 0;
+          final initialTask = state.extra is VirtualTryOnTaskItem
+              ? state.extra as VirtualTryOnTaskItem
+              : null;
+          return VirtualTryOnDetailView(
+            tryOnId: tryOnId,
+            initialTask: initialTask,
           );
         },
       ),

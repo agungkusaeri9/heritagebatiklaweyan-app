@@ -111,6 +111,43 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
     }
   }
 
+  Future<void> _handleLeaveReviewForProduct(
+    CheckoutResultModel order,
+    CheckoutOrderItemModel item,
+  ) async {
+    if (_isNavigating) return;
+    setState(() => _isNavigating = true);
+    try {
+      final identifier = order.orderNumber.isNotEmpty
+          ? order.orderNumber
+          : order.id.toString();
+      final result = await context.push(
+        '/orders/$identifier/review?productId=${item.productId}',
+        extra: {
+          'order': order,
+          'item': item,
+          'productId': item.productId,
+        },
+      );
+      if (mounted) {
+        if (result is CheckoutResultModel) {
+          setState(() {
+            _order = result;
+          });
+          ref
+              .read(orderListViewModelProvider.notifier)
+              .updateOrderInState(result);
+        } else {
+          await _fetchOrderDetail(silent: true);
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isNavigating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = _order;
@@ -143,8 +180,10 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                           : const SizedBox.shrink(),
             ),
 
-            // 3. Tombol Aksi Bawah (hanya ditampilkan jika ada aksi yang relevan)
-            if (order != null && (order.canTrackOrder || order.canUploadPaymentProof))
+            // 3. Tombol Aksi Bawah (hanya ditampilkan untuk pesanan aktif: Track Order / Upload Payment Proof)
+            if (order != null &&
+                (order.canTrackOrder ||
+                    (order.canUploadPaymentProof && !order.hasPaymentProof)))
               _buildBottomAction(context, order),
           ],
         ),
@@ -272,10 +311,28 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
               order.paymentStatusLabel,
               valueColor: _paymentStatusTextColor(order),
             ),
+            if (order.isCompletedOrder)
+              _buildRowItem(
+                'Status Ulasan',
+                order.isFullyReviewed
+                    ? 'Sudah Diulas (${order.effectiveRating?.toStringAsFixed(1) ?? '5.0'}/5)'
+                    : (order.isPartiallyReviewed
+                        ? 'Sebagian Diulas'
+                        : 'Belum Diulas'),
+                valueColor: order.isFullyReviewed
+                    ? const Color(0xFF15803D)
+                    : const Color(0xFFD97706),
+              ),
           ],
         ),
 
         const SizedBox(height: 16),
+
+        // 2b. Seksi Penilaian & Ulasan Transaksi (khusus jika status Selesai / Completed)
+        if (order.isCompletedOrder) ...[
+          _buildReviewSummarySection(context, order),
+          const SizedBox(height: 16),
+        ],
 
         // 3. Seksi Daftar Seluruh Produk dalam Pesanan (Product List)
         if (order.items.isNotEmpty) ...[
@@ -595,86 +652,241 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
             ),
             itemBuilder: (context, index) {
               final item = items[index];
-              return Row(
+              final itemReview = order.reviewForProduct(item.productId);
+
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Thumbnail Produk
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      width: 56,
-                      height: 56,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Thumbnail Produk
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: item.primaryImage != null &&
+                                  item.primaryImage!.isNotEmpty
+                              ? Image.network(
+                                  item.primaryImage!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.checkroom_rounded,
+                                    color: Color(0xFF94A3B8),
+                                    size: 24,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.checkroom_rounded,
+                                  color: Color(0xFF94A3B8),
+                                  size: 24,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Detail Produk (Nama, Varian, Harga Satuan & Qty)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.productName,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (item.hasVariant) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                item.displayVariant,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item.quantity}x ${item.formattedPrice}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Subtotal Item
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            item.formattedTotalPrice,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  // Status & Tombol Ulasan Per Produk (Khusus Pesanan Selesai / Completed)
+                  if (order.isCompletedOrder) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Badge Status Rating Produk (Belum Diulas vs Sudah Diulas ★ X/5)
+                        Container(
+                          key: Key(
+                            itemReview != null || item.isReviewed
+                                ? 'detail_item_reviewed_${item.productId}'
+                                : 'detail_item_unreviewed_${item.productId}',
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: itemReview != null || item.isReviewed
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                itemReview != null || item.isReviewed
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                size: 14,
+                                color: itemReview != null || item.isReviewed
+                                    ? const Color(0xFFD97706)
+                                    : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                itemReview != null || item.isReviewed
+                                    ? 'Sudah Diulas · ${itemReview?.rating ?? 5}/5'
+                                    : 'Belum Diulas',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: itemReview != null || item.isReviewed
+                                      ? const Color(0xFFB45309)
+                                      : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Tombol Aksi Per Produk (Satu-Satu): Leave Review atau Lihat Ulasan
+                        if (itemReview != null || item.isReviewed)
+                          SizedBox(
+                            height: 32,
+                            child: OutlinedButton.icon(
+                              key: Key('view_review_product_${item.productId}'),
+                              onPressed: _isNavigating
+                                  ? null
+                                  : () => _handleLeaveReviewForProduct(order, item),
+                              icon: const Icon(Icons.visibility_outlined, size: 14),
+                              label: Text(
+                                'Lihat Ulasan',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(
+                                  color: AppColors.primary,
+                                  width: 1.1,
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            height: 32,
+                            child: ElevatedButton.icon(
+                              key: Key('leave_review_product_${item.productId}'),
+                              onPressed: _isNavigating
+                                  ? null
+                                  : () => _handleLeaveReviewForProduct(order, item),
+                              icon: const Icon(Icons.star_rate_rounded, size: 15),
+                              label: Text(
+                                'Leave Review',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+
+                  // Tampilkan isi komentar review produk jika sudah diulas
+                  if (order.isCompletedOrder &&
+                      itemReview != null &&
+                      itemReview.comment != null &&
+                      itemReview.comment!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: item.primaryImage != null &&
-                              item.primaryImage!.isNotEmpty
-                          ? Image.network(
-                              item.primaryImage!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.checkroom_rounded,
-                                color: Color(0xFF94A3B8),
-                                size: 24,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.checkroom_rounded,
-                              color: Color(0xFF94A3B8),
-                              size: 24,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Detail Produk (Nama, Varian, Harga Satuan & Qty)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.productName,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      child: Text(
+                        '"${itemReview.comment!.trim()}"',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: const Color(0xFF475569),
                         ),
-                        if (item.hasVariant) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            item.displayVariant,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11.5,
-                              color: const Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 4),
-                        Text(
-                          '${item.quantity}x ${item.formattedPrice}',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF475569),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Subtotal Item
-                  Text(
-                    item.formattedTotalPrice,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
+                  ],
                 ],
               );
             },
@@ -684,9 +896,138 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
     );
   }
 
-  /// Menampilkan tombol aksi bawah sesuai status pesanan aktual:
+  /// Kartu Ringkasan Penilaian & Ulasan pada Detail Transaksi (saat status Completed)
+  Widget _buildReviewSummarySection(
+    BuildContext context,
+    CheckoutResultModel order,
+  ) {
+    final bool isReviewed = order.isFullyReviewed;
+    final double? rating = order.effectiveRating;
+
+    return Container(
+      key: const Key('detail_review_summary_card'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isReviewed ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isReviewed
+              ? const Color(0xFFFDE68A)
+              : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isReviewed
+                        ? Icons.stars_rounded
+                        : Icons.rate_review_outlined,
+                    size: 20,
+                    color: isReviewed
+                        ? const Color(0xFFD97706)
+                        : AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Status Ulasan Produk',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                key: Key(
+                  isReviewed
+                      ? 'detail_reviewed_status_badge'
+                      : 'detail_unreviewed_status_badge',
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isReviewed
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isReviewed
+                      ? 'Sudah Diulas'
+                      : (order.isPartiallyReviewed ? 'Sebagian Diulas' : 'Belum Diulas'),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isReviewed
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFFB45309),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (isReviewed) ...[
+            Row(
+              children: [
+                ...List.generate(5, (index) {
+                  final starVal = index + 1;
+                  final activeStars = (rating ?? 5.0).round();
+                  return Icon(
+                    Icons.star_rounded,
+                    size: 20,
+                    color: starVal <= activeStars
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFFCBD5E1),
+                  );
+                }),
+                const SizedBox(width: 8),
+                Text(
+                  '${rating?.toStringAsFixed(1) ?? '5.0'} / 5.0',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Terima kasih! Seluruh produk pada transaksi ini telah Anda berikan penilaian dan ulasan.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ] else ...[
+            Text(
+              order.isPartiallyReviewed
+                  ? 'Masih ada ${order.unreviewedProductCount} produk yang belum diberi rating. Silakan tekan tombol "Leave Review" pada produk di bawah satu per satu.'
+                  : 'Pesanan telah selesai. Silakan pilih tombol "Leave Review" pada masing-masing produk di bawah untuk memberikan rating satu per satu.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                color: const Color(0xFF475569),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Menampilkan tombol aksi bawah sesuai status pesanan aktif:
   /// - Active: Track Order & Upload Payment Proof (bila belum lunas / belum upload)
-  /// - Completed / Cancelled: disembunyikan
   Widget _buildBottomAction(BuildContext context, CheckoutResultModel order) {
     final bool showUpload = order.canUploadPaymentProof && !order.hasPaymentProof;
     final bool showTrack = order.canTrackOrder;

@@ -50,6 +50,9 @@ class MockHomeRepository implements HomeRepository {
       total: filtered.length,
     );
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class MockLocalStorageService implements ILocalStorageService {

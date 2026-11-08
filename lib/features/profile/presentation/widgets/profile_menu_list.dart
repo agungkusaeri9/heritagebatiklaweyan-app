@@ -38,6 +38,11 @@ class ProfileMenuList extends StatelessWidget {
       return;
     }
 
+    if (item.id == 'virtual_try_on' || item.route == '/virtual-try-ons') {
+      context.push('/virtual-try-ons');
+      return;
+    }
+
     if (item.id == 'settings') {
       context.push('/settings');
       return;

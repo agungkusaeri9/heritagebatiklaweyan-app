@@ -17,13 +17,11 @@ import '../widgets/product_card.dart';
 class CategoryProductsView extends ConsumerStatefulWidget {
   final ProductCategoryItem category;
 
-  const CategoryProductsView({
-    super.key,
-    required this.category,
-  });
+  const CategoryProductsView({super.key, required this.category});
 
   @override
-  ConsumerState<CategoryProductsView> createState() => _CategoryProductsViewState();
+  ConsumerState<CategoryProductsView> createState() =>
+      _CategoryProductsViewState();
 }
 
 class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
@@ -67,7 +65,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
     if (_scrollController.hasClients) {
       final maxScroll = _scrollController.position.maxScrollExtent;
       final currentScroll = _scrollController.position.pixels;
-      if (currentScroll >= maxScroll - 250 && !_isLoadingMore && _hasMore && !_isLoading) {
+      if (currentScroll >= maxScroll - 250 &&
+          !_isLoadingMore &&
+          _hasMore &&
+          !_isLoading) {
         _loadMore();
       }
     }
@@ -99,22 +100,31 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
           _allFetchedProducts = result.items;
         } else {
           final existingIds = _allFetchedProducts.map((p) => p.id).toSet();
-          final newItems = result.items.where((p) => !existingIds.contains(p.id)).toList();
+          final newItems = result.items
+              .where((p) => !existingIds.contains(p.id))
+              .toList();
           _allFetchedProducts.addAll(newItems);
         }
         _currentPage = result.currentPage;
         _hasMore = result.hasMore;
-        _totalCount = result.total > 0 ? result.total : _allFetchedProducts.length;
+        _totalCount = result.total > 0
+            ? result.total
+            : _allFetchedProducts.length;
         _isLoading = false;
         _isLoadingMore = false;
       });
     } catch (e, stack) {
-      AppLogger.e('Gagal memuat produk kategori: ${widget.category.name}', error: e, stackTrace: stack);
+      AppLogger.e(
+        'Gagal memuat produk kategori: ${widget.category.name}',
+        error: e,
+        stackTrace: stack,
+      );
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _isLoadingMore = false;
-        _errorMessage = 'Gagal memuat produk kategori. Silakan periksa koneksi Anda.';
+        _errorMessage =
+            'Gagal memuat produk kategori. Silakan periksa koneksi Anda.';
       });
     }
   }
@@ -136,14 +146,16 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
       return;
     }
 
-    final success = await ref.read(cartViewModelProvider.notifier).addToCart(
-      productId,
-      quantity: 1,
-      onError: (message) {
-        if (!mounted) return;
-        AppSnackBar.showError(context, message);
-      },
-    );
+    final success = await ref
+        .read(cartViewModelProvider.notifier)
+        .addToCart(
+          productId,
+          quantity: 1,
+          onError: (message) {
+            if (!mounted) return;
+            AppSnackBar.showError(context, message);
+          },
+        );
 
     if (success && mounted) {
       AppSnackBar.showSuccess(
@@ -155,7 +167,7 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
 
   /// Menangani tap pada kartu produk
   void _handleProductTap(ProductItem product) {
-    AppSnackBar.showSuccess(context, 'Melihat produk: ${product.name}');
+    context.push('/product/${product.id}', extra: product);
   }
 
   /// Memfilter dan mengurutkan produk secara dinamis di sisi klien
@@ -246,8 +258,14 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                   top: 6,
                   right: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEF4444),
                       shape: BoxShape.circle,
@@ -287,7 +305,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                 SliverToBoxAdapter(
                   child: Container(
                     color: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                     child: Container(
                       height: 46,
                       decoration: BoxDecoration(
@@ -313,7 +334,8 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                                 color: const Color(0xFF0F172A),
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Cari dalam ${widget.category.name}...',
+                                hintText:
+                                    'Cari dalam ${widget.category.name}...',
                                 hintStyle: GoogleFonts.plusJakartaSans(
                                   fontSize: 13.5,
                                   color: const Color(0xFF94A3B8),
@@ -342,14 +364,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                 ),
 
               // 2. Banner Header Kategori
-              SliverToBoxAdapter(
-                child: _buildCategoryBannerHeader(),
-              ),
+              SliverToBoxAdapter(child: _buildCategoryBannerHeader()),
 
               // 3. Filter & Sort Bar
-              SliverToBoxAdapter(
-                child: _buildFilterSortBar(),
-              ),
+              SliverToBoxAdapter(child: _buildFilterSortBar()),
 
               // 4. Area Konten Produk
               if (_isLoading)
@@ -374,25 +392,26 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.62,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final product = displayedProducts[index];
-                        return ProductCard(
-                          product: product,
-                          onProductTap: _handleProductTap,
-                          onAddToCart: () => _handleAddToCart(product),
-                        );
-                      },
-                      childCount: displayedProducts.length,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.62,
+                        ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final product = displayedProducts[index];
+                      return ProductCard(
+                        product: product,
+                        onProductTap: _handleProductTap,
+                        onAddToCart: () => _handleAddToCart(product),
+                      );
+                    }, childCount: displayedProducts.length),
                   ),
                 ),
 
@@ -414,9 +433,7 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                   ),
                 ),
 
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 32),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           ),
         ),
@@ -426,7 +443,9 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
 
   /// Banner Header Kategori dengan visual, deskripsi, dan total produk
   Widget _buildCategoryBannerHeader() {
-    final hasImage = widget.category.imageUrl != null && widget.category.imageUrl!.isNotEmpty;
+    final hasImage =
+        widget.category.imageUrl != null &&
+        widget.category.imageUrl!.isNotEmpty;
     final isAll = widget.category.id == 'all' || widget.category.slug.isEmpty;
 
     return Container(
@@ -459,7 +478,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.4),
+                width: 1.5,
+              ),
             ),
             child: ClipOval(
               child: hasImage
@@ -474,11 +496,7 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                         color: Colors.white,
                       ),
                     )
-                  : Icon(
-                      widget.category.icon,
-                      size: 26,
-                      color: Colors.white,
-                    ),
+                  : Icon(widget.category.icon, size: 26, color: Colors.white),
             ),
           ),
 
@@ -506,7 +524,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.22),
                         borderRadius: BorderRadius.circular(12),
@@ -570,12 +591,17 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: activeCount > 0 ? AppColors.primary : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: activeCount > 0 ? AppColors.primary : const Color(0xFFCBD5E1),
+                    color: activeCount > 0
+                        ? AppColors.primary
+                        : const Color(0xFFCBD5E1),
                   ),
                 ),
                 child: Row(
@@ -584,7 +610,9 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                     Icon(
                       Icons.tune_rounded,
                       size: 16,
-                      color: activeCount > 0 ? Colors.white : const Color(0xFF334155),
+                      color: activeCount > 0
+                          ? Colors.white
+                          : const Color(0xFF334155),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -592,13 +620,18 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: activeCount > 0 ? Colors.white : const Color(0xFF334155),
+                        color: activeCount > 0
+                            ? Colors.white
+                            : const Color(0xFF334155),
                       ),
                     ),
                     if (activeCount > 0) ...[
                       const SizedBox(width: 5),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
@@ -654,7 +687,9 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? AppColors.primary : const Color(0xFFCBD5E1),
@@ -698,7 +733,9 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
             ),
             const SizedBox(height: 18),
             Text(
-              hasActiveFilter ? 'Tidak Ada Produk Sesuai Filter' : 'Belum Ada Produk di Kategori Ini',
+              hasActiveFilter
+                  ? 'Tidak Ada Produk Sesuai Filter'
+                  : 'Belum Ada Produk di Kategori Ini',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
@@ -733,7 +770,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                 ),
                 child: Text(
                   'Reset Filter',
@@ -754,7 +794,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                 ),
                 child: Text(
                   'Lihat Kategori Lainnya',
@@ -820,7 +863,10 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
               ),
             ),
           ],

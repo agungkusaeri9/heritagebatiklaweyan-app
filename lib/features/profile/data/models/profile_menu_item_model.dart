@@ -43,6 +43,12 @@ class ProfileMenuItemModel {
       route: '/orders',
     ),
     ProfileMenuItemModel(
+      id: 'virtual_try_on',
+      title: 'Virtual Try-On Batik',
+      icon: Icons.auto_awesome_rounded,
+      route: '/virtual-try-ons',
+    ),
+    ProfileMenuItemModel(
       id: 'settings',
       title: 'Settings',
       icon: Icons.settings_outlined,

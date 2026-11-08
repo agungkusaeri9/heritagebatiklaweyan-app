@@ -3,6 +3,7 @@ import '../datasources/checkout_remote_data_source.dart';
 import '../models/checkout_result_model.dart';
 import '../models/customer_address_model.dart';
 import '../models/order_pagination_model.dart';
+import '../models/order_review_model.dart';
 import '../models/region_model.dart';
 import '../models/shipping_type_model.dart';
 
@@ -30,6 +31,12 @@ abstract class CheckoutRepository {
   Future<CheckoutResultModel> uploadPaymentProof({
     required dynamic idOrOrderNumber,
     required String filePath,
+  });
+  Future<CheckoutResultModel> submitOrderReviews({
+    required CheckoutResultModel order,
+    required int transactionRating,
+    String? transactionComment,
+    required List<OrderItemReviewModel> productReviews,
   });
   Future<List<ProvinceModel>> getProvinces();
   Future<List<CityModel>> getCities(int provinceId);
@@ -116,6 +123,21 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     return remoteDataSource.uploadPaymentProof(
       idOrOrderNumber: idOrOrderNumber,
       filePath: filePath,
+    );
+  }
+
+  @override
+  Future<CheckoutResultModel> submitOrderReviews({
+    required CheckoutResultModel order,
+    required int transactionRating,
+    String? transactionComment,
+    required List<OrderItemReviewModel> productReviews,
+  }) {
+    return remoteDataSource.submitOrderReviews(
+      order: order,
+      transactionRating: transactionRating,
+      transactionComment: transactionComment,
+      productReviews: productReviews,
     );
   }
 

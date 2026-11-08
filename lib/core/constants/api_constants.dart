@@ -5,14 +5,17 @@ class ApiConstants {
   ApiConstants._();
 
   /// Default fallback URL murni IP & Port jika .env belum dimuat
-  static const String defaultUrl = 'http://192.168.100.17:8000';
+  static const String defaultUrl = 'http://192.168.1.12:8000';
 
   /// Mendapatkan URL server murni (IP & Port) dari .env tanpa path
   static String get serverUrl {
     final envUrl = dotenv.env['API_BASE_URL'] ?? dotenv.env['BASE_URL'];
     String raw = (envUrl != null && envUrl.trim().isNotEmpty)
         ? envUrl.trim()
-        : const String.fromEnvironment('API_BASE_URL', defaultValue: defaultUrl);
+        : const String.fromEnvironment(
+            'API_BASE_URL',
+            defaultValue: defaultUrl,
+          );
 
     // Hapus path /api atau /api/v1 dan trailing slash jika user tidak sengaja memasukkannya
     if (raw.endsWith('/')) {
@@ -54,10 +57,13 @@ class ApiConstants {
   static const String profile = '/auth/me';
   static const String updateProfile = '/user/profile';
   static const String forgotPasswordSendOtp = '/auth/forgot-password/send-otp';
-  static const String forgotPasswordVerifyOtp = '/auth/forgot-password/verify-otp';
-  static const String forgotPasswordReset = '/auth/forgot-password/reset-password';
+  static const String forgotPasswordVerifyOtp =
+      '/auth/forgot-password/verify-otp';
+  static const String forgotPasswordReset =
+      '/auth/forgot-password/reset-password';
 
   // Store & Master Data Endpoints
+  static const String ping = '/ping';
   static const String settings = '/settings';
   static const String privacyPolicy = '/settings/privacy-policy';
   static const String paymentMethods = '/payment-methods';
@@ -76,11 +82,15 @@ class ApiConstants {
   static String addressPrimary(int id) => '/addresses/$id/primary';
 
   // Master Location Endpoints
+  static String getAddress({required double lat, required double lon}) =>
+      '/locations/address?lat=$lat&lon=$lon';
   static const String provinces = '/locations/provinces';
-  static String cities({int? provinceId}) =>
-      provinceId != null ? '/locations/cities?province_id=$provinceId' : '/locations/cities';
-  static String subdistricts({int? cityId}) =>
-      cityId != null ? '/locations/subdistricts?city_id=$cityId' : '/locations/subdistricts';
+  static String cities({int? provinceId}) => provinceId != null
+      ? '/locations/cities?province_id=$provinceId'
+      : '/locations/cities';
+  static String subdistricts({int? cityId}) => cityId != null
+      ? '/locations/subdistricts?city_id=$cityId'
+      : '/locations/subdistricts';
 
   // Shipping & Couriers Endpoints
   static const String couriers = '/couriers';
@@ -92,19 +102,37 @@ class ApiConstants {
   static const String notifications = '/notifications';
   static const String notificationsMarkRead = '/notifications/mark-read';
   static const String notificationsMarkAllRead = '/notifications/mark-all-read';
-  static String notificationMarkSingleRead(int id) => '/notifications/$id/mark-read';
+  static String notificationMarkSingleRead(int id) =>
+      '/notifications/$id/mark-read';
 
   // Cart Endpoints
   static const String cart = '/cart';
   static String cartItem(int id) => '/cart/$id';
 
+  // Wishlist Endpoints
+  static const String wishlist = '/wishlist';
+  static String wishlistItem(int productId) => '/wishlist/$productId';
+
   // Checkout Endpoints
   static const String checkout = '/checkout';
   static const String checkoutPreview = '/checkout/preview';
 
-  // Orders Endpoints
+  // Orders & Reviews Endpoints
   static const String orders = '/orders';
-  static String orderDetail(dynamic idOrOrderNumber) => '/orders/$idOrOrderNumber';
-  static String uploadPaymentProof(dynamic idOrOrderNumber) => '/orders/$idOrOrderNumber/payment-proof';
-}
+  static String orderDetail(dynamic idOrOrderNumber) =>
+      '/orders/$idOrOrderNumber';
+  static String uploadPaymentProof(dynamic idOrOrderNumber) =>
+      '/orders/$idOrOrderNumber/payment-proof';
+  static const String reviews = '/reviews';
+  static String productReviews(dynamic idOrSlug) =>
+      '/products/$idOrSlug/reviews';
 
+  // Virtual Try-On Endpoints
+  static const String virtualTryOns = '/virtual-try-ons';
+  static const String virtualTryOnModels = '/virtual-try-ons/models';
+  static String productVirtualTryOns(int productId) =>
+      '/products/$productId/virtual-try-ons';
+  static String virtualTryOnDetail(int id) => '/virtual-try-ons/$id';
+  static String virtualTryOnProgress(int id) => '/virtual-try-ons/$id/progress';
+  static String virtualTryOnRetry(int id) => '/virtual-try-ons/$id/retry';
+}
