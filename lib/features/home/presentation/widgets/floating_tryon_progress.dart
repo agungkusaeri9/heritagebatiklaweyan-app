@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../data/models/home_dummy_data.dart';
 import '../viewmodels/tryon_progress_provider.dart';
 
@@ -15,11 +15,12 @@ class FloatingTryOnProgress extends ConsumerWidget {
 
     if (!progressState.hasActiveTasks) return const SizedBox.shrink();
 
-    if (progressState.isMinimized) {
-      return _MinimizedBubble(state: progressState);
-    }
-
-    return _ExpandedCard(state: progressState);
+    return Material(
+      type: MaterialType.transparency,
+      child: progressState.isMinimized
+          ? _MinimizedBubble(state: progressState)
+          : _ExpandedCard(state: progressState),
+    );
   }
 }
 
@@ -67,7 +68,7 @@ class _MinimizedBubble extends ConsumerWidget {
                 width: 36,
                 height: 36,
                 child: CircularProgressIndicator(
-                  value: state.totalProgress / 100,
+                  value: (state.totalProgress / 100).clamp(0.05, 1.0),
                   strokeWidth: 3,
                   backgroundColor: Colors.white.withValues(alpha: 0.15),
                   valueColor: AlwaysStoppedAnimation<Color>(ringColor),
@@ -119,7 +120,7 @@ class _ExpandedCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       width: 260,
-      constraints: const BoxConstraints(maxHeight: 300),
+      constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(18),
@@ -135,68 +136,75 @@ class _ExpandedCard extends ConsumerWidget {
           width: 1,
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 14,
-                  color: Color(0xFFF59E0B),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Virtual Try-On',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: Color(0xFFF59E0B),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Virtual Try-On',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                InkWell(
-                  onTap: () => ref
-                      .read(tryOnProgressProvider.notifier)
-                      .setMinimized(true),
-                  borderRadius: BorderRadius.circular(10),
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.minimize_rounded,
-                      size: 16,
-                      color: Color(0xFF94A3B8),
+                  InkWell(
+                    onTap: () => ref
+                        .read(tryOnProgressProvider.notifier)
+                        .setMinimized(true),
+                    borderRadius: BorderRadius.circular(10),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.minimize_rounded,
+                        size: 16,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Divider(
-            height: 1,
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              itemCount: state.activeTasks.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                indent: 14,
-                endIndent: 14,
-                color: Colors.white.withValues(alpha: 0.06),
+                ],
               ),
-              itemBuilder: (context, index) {
-                final task = state.activeTasks[index];
-                return _TaskRow(task: task);
-              },
             ),
-          ),
-        ],
+            Divider(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int i = 0; i < state.activeTasks.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          indent: 14,
+                          endIndent: 14,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
+                      _TaskRow(task: state.activeTasks[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -215,7 +223,10 @@ class _TaskRow extends ConsumerWidget {
 
     return InkWell(
       onTap: () {
-        context.push('/virtual-try-ons/${task.id}', extra: task);
+        ref.read(routerProvider).push(
+              '/virtual-try-ons/${task.id}',
+              extra: task,
+            );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -224,15 +235,18 @@ class _TaskRow extends ConsumerWidget {
           children: [
             Row(
               children: [
-                if (isCompleted && task.photoUrl != null && task.photoUrl!.isNotEmpty)
+                if (isCompleted &&
+                    task.photoUrl != null &&
+                    task.photoUrl!.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: Image.network(
                       task.photoUrl!,
                       width: 28,
                       height: 28,
+                      cacheWidth: 84,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, _, _) => const Icon(
                         Icons.check_circle_rounded,
                         color: Color(0xFF10B981),
                         size: 20,

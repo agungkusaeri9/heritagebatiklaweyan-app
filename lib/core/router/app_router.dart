@@ -15,6 +15,7 @@ import '../../features/home/presentation/views/category_list_view.dart';
 import '../../features/home/presentation/views/category_products_view.dart';
 import '../../features/home/presentation/views/home_view.dart';
 import '../../features/home/presentation/views/product_detail_view.dart';
+import '../../features/home/presentation/views/product_virtual_try_on_view.dart';
 import '../../features/home/presentation/views/virtual_try_on_list_view.dart';
 import '../../features/home/presentation/views/virtual_try_on_detail_view.dart';
 import '../../features/location/presentation/viewmodels/location_providers.dart';
@@ -111,10 +112,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/verify-otp',
         name: 'verify-otp',
         builder: (context, state) {
-          final email = (state.extra as String?) ??
-              state.uri.queryParameters['email'] ??
-              '';
-          return VerifyOtpView(email: email);
+          String email = '';
+          String type = 'password_reset';
+
+          if (state.extra is Map) {
+            final map = state.extra as Map;
+            email = map['email']?.toString() ?? '';
+            type = map['type']?.toString() ?? 'password_reset';
+          } else if (state.extra is String) {
+            email = state.extra as String;
+          } else {
+            email = state.uri.queryParameters['email'] ?? '';
+            type = state.uri.queryParameters['type'] ?? 'password_reset';
+          }
+          return VerifyOtpView(email: email, type: type);
         },
       ),
       GoRoute(
@@ -194,6 +205,28 @@ final routerProvider = Provider<GoRouter>((ref) {
             productId: productId,
             initialProduct: initialProduct,
           );
+        },
+      ),
+      GoRoute(
+        path: '/product/:productId/try-on',
+        name: 'product-try-on',
+        builder: (context, state) {
+          final productId = state.pathParameters['productId'] ?? '';
+          final product = state.extra is ProductItem
+              ? state.extra as ProductItem
+              : ProductItem(
+                  id: productId,
+                  name: 'Produk Batik',
+                  category: 'Batik',
+                  discountedPrice: 0,
+                  originalPrice: 0,
+                  discountPercentage: 0,
+                  rating: 5.0,
+                  reviewCount: 0,
+                  soldCount: 0,
+                  placeholderColor: const Color(0xFF704F38),
+                );
+          return ProductVirtualTryOnView(product: product);
         },
       ),
       GoRoute(
@@ -431,14 +464,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/reset-password';
       final isCompleteProfileRoute = state.matchedLocation == '/complete-profile';
       final isLocationRoute = state.matchedLocation == '/location';
+      final isVerifyOtpRoute = state.matchedLocation == '/verify-otp';
 
       // Biarkan splash screen selesai menampilkan animasi logo sebelum bernavigasi
       if (isSplash) {
         return null;
       }
 
-      // Rute pemilihan lokasi dapat diakses oleh guest maupun user yang sudah login
-      if (isLocationRoute) {
+      // Rute pemilihan lokasi dan verifikasi OTP dapat diakses tanpa dipaksa redirect
+      if (isLocationRoute || isVerifyOtpRoute) {
         return null;
       }
 

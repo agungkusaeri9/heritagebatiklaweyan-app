@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../store/presentation/viewmodels/store_providers.dart';
 import '../../data/models/checkout_result_model.dart';
 import '../viewmodels/checkout_providers.dart';
 
@@ -38,6 +41,12 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
     _order = widget.initialOrder;
     // Selalu muat detail lengkap dari API; jika initialOrder sudah lengkap, muat secara silent
     _fetchOrderDetail(silent: _order != null && _order!.items.isNotEmpty);
+    // Pastikan data toko (termasuk nomor WhatsApp admin) termuat di background
+    Future.microtask(() {
+      if (mounted && ref.read(currentStoreSettingProvider) == null) {
+        ref.read(storeViewModelProvider.notifier).fetchInitialData();
+      }
+    });
   }
 
   Future<void> _fetchOrderDetail({bool silent = false}) async {
@@ -55,13 +64,17 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
           : (_order?.id ?? '');
       final result = await repo.getOrderDetail(identifier);
       if (mounted) {
-        final merged = _order != null ? _order!.mergeWithDetail(result) : result;
+        final merged = _order != null
+            ? _order!.mergeWithDetail(result)
+            : result;
         setState(() {
           _order = merged;
           _isLoading = false;
           _errorMessage = null;
         });
-        ref.read(orderListViewModelProvider.notifier).updateOrderInState(merged);
+        ref
+            .read(orderListViewModelProvider.notifier)
+            .updateOrderInState(merged);
       }
     } catch (e) {
       if (mounted && !silent) {
@@ -111,6 +124,116 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
     }
   }
 
+  Future<void> _handleChatWhatsApp(CheckoutResultModel order) async {
+    // 1. Ambil nomor WhatsApp dari data order aktual yang dikirim backend
+    String? waNumber = order.storeWhatsapp;
+
+    // 2. Jika belum ada di order, ambil dari state pengaturan toko di memory
+    if (waNumber == null || waNumber.trim().isEmpty) {
+      final store = ref.read(currentStoreSettingProvider);
+      waNumber = store?.whatsapp;
+    }
+
+    // 3. Jika storeSetting di memory belum sempat ter-load, fetch langsung dari endpoint API /settings
+    if (waNumber == null || waNumber.trim().isEmpty) {
+      try {
+        final setting =
+            await ref.read(storeRemoteDataSourceProvider).getStoreSetting();
+        waNumber = setting.whatsapp;
+      } catch (e) {
+        debugPrint('Fetch store setting fallback error: $e');
+      }
+    }
+
+    // Normalisasi nomor telepon ke format internasional (misal 0812... -> 62812...)
+    waNumber = (waNumber ?? '6281234567890').replaceAll(RegExp(r'\D'), '');
+    if (waNumber.startsWith('0')) {
+      waNumber = '62${waNumber.substring(1)}';
+    }
+
+    final orderIdentifier = order.orderNumber.isNotEmpty
+        ? order.orderNumber
+        : '#${order.id}';
+    final message =
+        '''
+Halo Admin Heritage Batik Laweyan,
+Saya ingin konfirmasi bahwa bukti pembayaran telah saya unggah untuk pesanan:
+📦 Nomor Pesanan: $orderIdentifier
+💰 Total: ${order.formattedTotal}
+
+Mohon bantuannya agar pesanan saya dapat segera diverifikasi dan diproses. Terima kasih!
+'''
+            .trim();
+
+    final encodedMessage = Uri.encodeComponent(message);
+    // Skema 1: Direct native WhatsApp app URL
+    final nativeWaUri = Uri.parse(
+      'whatsapp://send?phone=$waNumber&text=$encodedMessage',
+    );
+    // Skema 2: WhatsApp Web / Universal links fallback
+    final shortWaUri = Uri.parse(
+      'https://wa.me/$waNumber?text=$encodedMessage',
+    );
+    final webWaUri = Uri.parse(
+      'https://api.whatsapp.com/send?phone=$waNumber&text=$encodedMessage',
+    );
+
+    try {
+      // Coba buka WhatsApp via skema native terlebih dahulu
+      final launchedNative = await launchUrl(
+        nativeWaUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launchedNative) return;
+
+      // Fallback 1: wa.me
+      final launchedShort = await launchUrl(
+        shortWaUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launchedShort) return;
+
+      // Fallback 2: api.whatsapp.com
+      final launchedWeb = await launchUrl(
+        webWaUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launchedWeb) return;
+
+      if (mounted) {
+        Clipboard.setData(ClipboardData(text: message));
+        AppSnackBar.showError(
+          context,
+          'Aplikasi WhatsApp tidak ditemukan. Pesan konfirmasi telah disalin ke clipboard.',
+        );
+      }
+    } catch (e) {
+      debugPrint('WhatsApp direct launch error: $e');
+      // Jika terjadi error pada native (misal WhatsApp belum terinstal atau intent diblokir), coba via browser
+      try {
+        final launchedFallback = await launchUrl(
+          shortWaUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launchedFallback && mounted) {
+          Clipboard.setData(ClipboardData(text: message));
+          AppSnackBar.showError(
+            context,
+            'Tidak dapat membuka WhatsApp. Pesan telah disalin ke clipboard.',
+          );
+        }
+      } catch (err) {
+        if (mounted) {
+          Clipboard.setData(ClipboardData(text: message));
+          AppSnackBar.showError(
+            context,
+            'Gagal membuka WhatsApp. Pesan konfirmasi telah disalin ke clipboard.',
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _handleLeaveReviewForProduct(
     CheckoutResultModel order,
     CheckoutOrderItemModel item,
@@ -123,11 +246,7 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
           : order.id.toString();
       final result = await context.push(
         '/orders/$identifier/review?productId=${item.productId}',
-        extra: {
-          'order': order,
-          'item': item,
-          'productId': item.productId,
-        },
+        extra: {'order': order, 'item': item, 'productId': item.productId},
       );
       if (mounted) {
         if (result is CheckoutResultModel) {
@@ -166,23 +285,26 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
               child: _isLoading && order == null
                   ? const Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
+                        ),
                       ),
                     )
                   : _errorMessage != null && order == null
-                      ? _buildErrorView(context)
-                      : order != null
-                          ? RefreshIndicator(
-                              color: AppColors.primary,
-                              onRefresh: () => _fetchOrderDetail(silent: false),
-                              child: _buildOrderBody(context, order),
-                            )
-                          : const SizedBox.shrink(),
+                  ? _buildErrorView(context)
+                  : order != null
+                  ? RefreshIndicator(
+                      color: AppColors.primary,
+                      onRefresh: () => _fetchOrderDetail(silent: false),
+                      child: _buildOrderBody(context, order),
+                    )
+                  : const SizedBox.shrink(),
             ),
 
-            // 3. Tombol Aksi Bawah (hanya ditampilkan untuk pesanan aktif: Track Order / Upload Payment Proof)
+            // 3. Tombol Aksi Bawah (Track Order / Chat WhatsApp / Upload Payment Proof)
             if (order != null &&
                 (order.canTrackOrder ||
+                    order.hasPaymentProof ||
                     (order.canUploadPaymentProof && !order.hasPaymentProof)))
               _buildBottomAction(context, order),
           ],
@@ -250,12 +372,19 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: Color(0xFFEF4444),
+            ),
             const SizedBox(height: 12),
             Text(
               _errorMessage ?? 'Gagal memuat detail pesanan.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: const Color(0xFF64748B)),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+              ),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -276,7 +405,9 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
     final fullAddress = order.fullShippingAddress;
 
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: EdgeInsets.fromLTRB(
         20,
         8,
@@ -286,6 +417,12 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
       children: [
         // 1. Status Banner
         _buildStatusBanner(order),
+
+        // Info percepat proses pesanan via WhatsApp jika bukti pembayaran sudah diunggah
+        if (order.hasPaymentProof) ...[
+          const SizedBox(height: 12),
+          _buildFastProcessInfoBanner(context, order),
+        ],
 
         const SizedBox(height: 18),
 
@@ -297,7 +434,11 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
               'Nomor Pesanan',
               order.orderNumber.isNotEmpty ? order.orderNumber : '#${order.id}',
               onCopy: order.orderNumber.isNotEmpty
-                  ? () => _copyToClipboard(context, order.orderNumber, 'Nomor pesanan')
+                  ? () => _copyToClipboard(
+                      context,
+                      order.orderNumber,
+                      'Nomor pesanan',
+                    )
                   : null,
             ),
             _buildRowItem('Tanggal Pemesanan', order.formattedDate),
@@ -317,8 +458,8 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                 order.isFullyReviewed
                     ? 'Sudah Diulas (${order.effectiveRating?.toStringAsFixed(1) ?? '5.0'}/5)'
                     : (order.isPartiallyReviewed
-                        ? 'Sebagian Diulas'
-                        : 'Belum Diulas'),
+                          ? 'Sebagian Diulas'
+                          : 'Belum Diulas'),
                 valueColor: order.isFullyReviewed
                     ? const Color(0xFF15803D)
                     : const Color(0xFFD97706),
@@ -348,15 +489,22 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
               'Kurir / Layanan',
               order.shippingName ?? order.courierName ?? '-',
             ),
-            if (order.trackingNumber != null && order.trackingNumber!.trim().isNotEmpty)
+            if (order.trackingNumber != null &&
+                order.trackingNumber!.trim().isNotEmpty)
               _buildRowItem(
                 'Nomor Resi',
                 order.trackingNumber!,
-                onCopy: () => _copyToClipboard(context, order.trackingNumber!, 'Nomor resi'),
+                onCopy: () => _copyToClipboard(
+                  context,
+                  order.trackingNumber!,
+                  'Nomor resi',
+                ),
               ),
-            if (order.recipientName != null && order.recipientName!.trim().isNotEmpty)
+            if (order.recipientName != null &&
+                order.recipientName!.trim().isNotEmpty)
               _buildRowItem('Penerima', order.recipientName!),
-            if (order.recipientPhone != null && order.recipientPhone!.trim().isNotEmpty)
+            if (order.recipientPhone != null &&
+                order.recipientPhone!.trim().isNotEmpty)
               _buildRowItem('Nomor Telepon', order.recipientPhone!),
             if (fullAddress != null && fullAddress.isNotEmpty)
               _buildRowItem('Alamat Pengiriman', fullAddress),
@@ -417,10 +565,7 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                 valueColor: const Color(0xFF16A34A),
               ),
             if (order.additionalCharges != null && order.additionalCharges! > 0)
-              _buildRowItem(
-                'Biaya Tambahan',
-                order.formattedAdditionalCharges,
-              ),
+              _buildRowItem('Biaya Tambahan', order.formattedAdditionalCharges),
             const Divider(height: 16, color: Color(0xFFE2E8F0)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -452,7 +597,8 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
   Color _statusTextColor(CheckoutResultModel order) {
     if (order.isCompletedOrder) return const Color(0xFF15803D);
     if (order.isCancelledOrder) return const Color(0xFF9F1239);
-    if (order.status.toLowerCase() == 'processing') return const Color(0xFF0369A1);
+    if (order.status.toLowerCase() == 'processing')
+      return const Color(0xFF0369A1);
     return const Color(0xFFB45309);
   }
 
@@ -512,6 +658,63 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                 fontWeight: FontWeight.w700,
                 color: textColor,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFastProcessInfoBanner(
+    BuildContext context,
+    CheckoutResultModel order,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: const BoxDecoration(
+              color: Color(0xFF22C55E),
+              shape: BoxShape.circle,
+            ),
+            child: const FaIcon(
+              FontAwesomeIcons.whatsapp,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ingin Pesanan Diproses Lebih Cepat?',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF14532D),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Bukti transfer telah tersimpan. Harap konfirmasi & chat admin melalui tombol WhatsApp di bawah agar pesanan segera diverifikasi dan diproses.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF166534),
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -646,10 +849,8 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(
-              height: 18,
-              color: Color(0xFFE2E8F0),
-            ),
+            separatorBuilder: (_, __) =>
+                const Divider(height: 18, color: Color(0xFFE2E8F0)),
             itemBuilder: (context, index) {
               final item = items[index];
               final itemReview = order.reviewForProduct(item.productId);
@@ -671,7 +872,8 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: item.primaryImage != null &&
+                          child:
+                              item.primaryImage != null &&
                                   item.primaryImage!.isNotEmpty
                               ? Image.network(
                                   item.primaryImage!,
@@ -806,8 +1008,14 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                               key: Key('view_review_product_${item.productId}'),
                               onPressed: _isNavigating
                                   ? null
-                                  : () => _handleLeaveReviewForProduct(order, item),
-                              icon: const Icon(Icons.visibility_outlined, size: 14),
+                                  : () => _handleLeaveReviewForProduct(
+                                      order,
+                                      item,
+                                    ),
+                              icon: const Icon(
+                                Icons.visibility_outlined,
+                                size: 14,
+                              ),
                               label: Text(
                                 'Lihat Ulasan',
                                 style: GoogleFonts.plusJakartaSans(
@@ -821,7 +1029,9 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                                   color: AppColors.primary,
                                   width: 1.1,
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
@@ -832,11 +1042,19 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                           SizedBox(
                             height: 32,
                             child: ElevatedButton.icon(
-                              key: Key('leave_review_product_${item.productId}'),
+                              key: Key(
+                                'leave_review_product_${item.productId}',
+                              ),
                               onPressed: _isNavigating
                                   ? null
-                                  : () => _handleLeaveReviewForProduct(order, item),
-                              icon: const Icon(Icons.star_rate_rounded, size: 15),
+                                  : () => _handleLeaveReviewForProduct(
+                                      order,
+                                      item,
+                                    ),
+                              icon: const Icon(
+                                Icons.star_rate_rounded,
+                                size: 15,
+                              ),
                               label: Text(
                                 'Leave Review',
                                 style: GoogleFonts.plusJakartaSans(
@@ -849,7 +1067,9 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
@@ -911,9 +1131,7 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
         color: isReviewed ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isReviewed
-              ? const Color(0xFFFDE68A)
-              : const Color(0xFFE2E8F0),
+          color: isReviewed ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0),
         ),
       ),
       child: Column(
@@ -963,7 +1181,9 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
                 child: Text(
                   isReviewed
                       ? 'Sudah Diulas'
-                      : (order.isPartiallyReviewed ? 'Sebagian Diulas' : 'Belum Diulas'),
+                      : (order.isPartiallyReviewed
+                            ? 'Sebagian Diulas'
+                            : 'Belum Diulas'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1027,10 +1247,13 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
   }
 
   /// Menampilkan tombol aksi bawah sesuai status pesanan aktif:
-  /// - Active: Track Order & Upload Payment Proof (bila belum lunas / belum upload)
+  /// - Jika bukti pembayaran sudah diunggah: Tombol Track Order berdampingan dengan tombol Chat WhatsApp
+  /// - Jika belum unggah bukti: Tombol Upload Payment Proof & Track Order
   Widget _buildBottomAction(BuildContext context, CheckoutResultModel order) {
-    final bool showUpload = order.canUploadPaymentProof && !order.hasPaymentProof;
+    final bool showUpload =
+        order.canUploadPaymentProof && !order.hasPaymentProof;
     final bool showTrack = order.canTrackOrder;
+    final bool hasProof = order.hasPaymentProof;
 
     return Container(
       decoration: BoxDecoration(
@@ -1056,73 +1279,148 @@ class _OrderDetailViewState extends ConsumerState<OrderDetailView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (showUpload) ...[
-            ElevatedButton.icon(
-              key: const Key('detail_upload_payment_proof_button'),
-              onPressed: _isNavigating ? null : () => _handleUploadPaymentProof(order),
-              icon: const Icon(Icons.upload_file_rounded, size: 20),
-              label: Text(
-                'Upload Payment Proof',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-            ),
-            if (showTrack) const SizedBox(height: 10),
-          ],
-          if (showTrack)
-            showUpload
-                ? OutlinedButton.icon(
-                    key: const Key('detail_track_order_button'),
-                    onPressed: _isNavigating ? null : () => _handleTrackOrder(order),
-                    icon: const Icon(Icons.local_shipping_outlined, size: 19),
-                    label: Text(
-                      'Track Order',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
+          if (hasProof) ...[
+            // Bukti sudah diunggah: tampilkan Track Order berdampingan dengan Chat WhatsApp
+            Row(
+              children: [
+                if (showTrack) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('detail_track_order_button'),
+                      onPressed: _isNavigating
+                          ? null
+                          : () => _handleTrackOrder(order),
+                      icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                      label: Text(
+                        'Track Order',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(
+                          color: AppColors.primary,
+                          width: 1.3,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary, width: 1.3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: ElevatedButton.icon(
+                    key: const Key('detail_chat_whatsapp_button'),
+                    onPressed: () => _handleChatWhatsApp(order),
+                    icon: const FaIcon(
+                      FontAwesomeIcons.whatsapp,
+                      size: 19,
+                      color: Colors.white,
                     ),
-                  )
-                : ElevatedButton.icon(
-                    key: const Key('detail_track_order_button'),
-                    onPressed: _isNavigating ? null : () => _handleTrackOrder(order),
-                    icon: const Icon(Icons.local_shipping_outlined, size: 20),
                     label: Text(
-                      'Track Order',
+                      'WhatsApp',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: const Color(0xFF25D366),
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(50),
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      elevation: 0,
                     ),
                   ),
+                ),
+              ],
+            ),
+          ] else ...[
+            if (showUpload) ...[
+              ElevatedButton.icon(
+                key: const Key('detail_upload_payment_proof_button'),
+                onPressed: _isNavigating
+                    ? null
+                    : () => _handleUploadPaymentProof(order),
+                icon: const Icon(Icons.upload_file_rounded, size: 20),
+                label: Text(
+                  'Upload Payment Proof',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+              if (showTrack) const SizedBox(height: 10),
+            ],
+            if (showTrack)
+              showUpload
+                  ? OutlinedButton.icon(
+                      key: const Key('detail_track_order_button'),
+                      onPressed: _isNavigating
+                          ? null
+                          : () => _handleTrackOrder(order),
+                      icon: const Icon(Icons.local_shipping_outlined, size: 19),
+                      label: Text(
+                        'Track Order',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(
+                          color: AppColors.primary,
+                          width: 1.3,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      key: const Key('detail_track_order_button'),
+                      onPressed: _isNavigating
+                          ? null
+                          : () => _handleTrackOrder(order),
+                      icon: const Icon(Icons.local_shipping_outlined, size: 20),
+                      label: Text(
+                        'Track Order',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+          ],
         ],
       ),
     );

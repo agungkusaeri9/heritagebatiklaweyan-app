@@ -227,7 +227,7 @@ class CheckoutViewModel extends Notifier<CheckoutState> {
     try {
       final payload = {
         'address_id': state.selectedAddress!.id,
-        'courier_id': state.selectedShippingType!.id,
+        'courier_id': state.selectedShippingType!.effectiveCourierId,
         'shipping_name': state.selectedShippingType!.name,
         'shipping_fee': state.selectedShippingType!.fee,
         'payment_method_id': chosenPaymentMethodId,

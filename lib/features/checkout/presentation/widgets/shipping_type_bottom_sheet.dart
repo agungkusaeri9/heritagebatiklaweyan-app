@@ -115,24 +115,24 @@ class ShippingTypeBottomSheet extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const BouncingScrollPhysics(),
                   itemCount: shippingTypes.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final type = shippingTypes[index];
-                    final isSelected = selectedShippingType?.id == type.id;
+                    final isSelected = selectedShippingType?.code == type.code;
 
                     return InkWell(
                       onTap: () {
                         onSelectShippingType(type);
                         Navigator.pop(context);
                       },
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppColors.primary.withValues(alpha: 0.04)
                               : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
                             width: isSelected ? 1.5 : 1.0,
@@ -142,9 +142,9 @@ class ShippingTypeBottomSheet extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             // Radio Button
-                            Radio<int>(
-                              value: type.id,
-                              groupValue: selectedShippingType?.id,
+                            Radio<String>(
+                              value: type.code,
+                              groupValue: selectedShippingType?.code,
                               activeColor: AppColors.primary,
                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               visualDensity: VisualDensity.compact,
@@ -154,12 +154,12 @@ class ShippingTypeBottomSheet extends StatelessWidget {
                               },
                             ),
 
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
 
-                            // Ikon Truk Pengiriman
+                            // Ikon Truk Pengiriman (Kompak 34x34)
                             Container(
-                              width: 38,
-                              height: 38,
+                              width: 34,
+                              height: 34,
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? AppColors.primary.withValues(alpha: 0.1)
@@ -168,12 +168,12 @@ class ShippingTypeBottomSheet extends StatelessWidget {
                               ),
                               child: Icon(
                                 Icons.local_shipping_outlined,
-                                size: 20,
+                                size: 18,
                                 color: isSelected ? AppColors.primary : const Color(0xFF475569),
                               ),
                             ),
 
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
 
                             // Detail Kurir
                             Expanded(
@@ -188,11 +188,11 @@ class ShippingTypeBottomSheet extends StatelessWidget {
                                       color: const Color(0xFF0F172A),
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 2),
                                   Text(
                                     type.description ?? type.estimatedDays,
                                     style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
+                                      fontSize: 11.5,
                                       color: const Color(0xFF64748B),
                                     ),
                                   ),

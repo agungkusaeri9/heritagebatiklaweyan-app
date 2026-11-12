@@ -9,13 +9,15 @@ import '../viewmodels/auth_providers.dart';
 import '../widgets/otp_input_widget.dart';
 import 'login_view.dart';
 
-/// Halaman Verifikasi Kode OTP 6 Kotak
+/// Halaman Verifikasi Kode OTP 6 Kotak (Mendukung Verifikasi Email & Reset Password)
 class VerifyOtpView extends ConsumerStatefulWidget {
   final String email;
+  final String type; // 'email_verification' | 'password_reset'
 
   const VerifyOtpView({
     super.key,
     required this.email,
+    this.type = 'password_reset',
   });
 
   @override
@@ -27,6 +29,8 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
   String _currentOtp = '';
   bool _isLoading = false;
   bool _isResending = false;
+
+  bool get _isEmailVerification => widget.type == 'email_verification';
 
   // Countdown timer 60 detik untuk kirim ulang
   int _secondsRemaining = 60;
@@ -66,25 +70,52 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
     });
 
     final viewModel = ref.read(authViewModelProvider.notifier);
-    final result = await viewModel.sendPasswordResetOtp(widget.email);
 
-    if (!mounted) return;
+    if (_isEmailVerification) {
+      final result = await viewModel.sendEmailVerificationOtp(widget.email);
+      if (!mounted) return;
 
-    setState(() {
-      _isResending = false;
-    });
+      setState(() {
+        _isResending = false;
+      });
 
-    result.fold(
-      onSuccess: (message) {
-        _otpKey.currentState?.clear();
-        _currentOtp = '';
-        _startCountdown();
-        AppSnackBar.showSuccess(context, 'Kode OTP baru telah dikirimkan ke email Anda.');
-      },
-      onFailure: (failure) {
-        AppSnackBar.showError(context, failure.message);
-      },
-    );
+      result.fold(
+        onSuccess: (message) {
+          _otpKey.currentState?.clear();
+          _currentOtp = '';
+          _startCountdown();
+          AppSnackBar.showSuccess(
+            context,
+            'Kode verifikasi email baru telah dikirimkan ke email Anda.',
+          );
+        },
+        onFailure: (failure) {
+          AppSnackBar.showError(context, failure.message);
+        },
+      );
+    } else {
+      final result = await viewModel.sendPasswordResetOtp(widget.email);
+      if (!mounted) return;
+
+      setState(() {
+        _isResending = false;
+      });
+
+      result.fold(
+        onSuccess: (message) {
+          _otpKey.currentState?.clear();
+          _currentOtp = '';
+          _startCountdown();
+          AppSnackBar.showSuccess(
+            context,
+            'Kode OTP baru telah dikirimkan ke email Anda.',
+          );
+        },
+        onFailure: (failure) {
+          AppSnackBar.showError(context, failure.message);
+        },
+      );
+    }
   }
 
   Future<void> _handleVerify() async {
@@ -100,33 +131,65 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
     });
 
     final viewModel = ref.read(authViewModelProvider.notifier);
-    final result = await viewModel.verifyPasswordResetOtp(
-      email: widget.email,
-      otp: _currentOtp,
-    );
 
-    if (!mounted) return;
+    if (_isEmailVerification) {
+      final result = await viewModel.verifyEmailOtp(
+        email: widget.email,
+        otp: _currentOtp,
+      );
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (!mounted) return;
 
-    result.fold(
-      onSuccess: (resetToken) {
-        AppSnackBar.showSuccess(context, 'Kode OTP berhasil diverifikasi.');
-        context.push(
-          '/reset-password',
-          extra: {
-            'email': widget.email,
-            'reset_token': resetToken,
-            'resetToken': resetToken,
-          },
-        );
-      },
-      onFailure: (failure) {
-        AppSnackBar.showError(context, failure.message);
-      },
-    );
+      setState(() {
+        _isLoading = false;
+      });
+
+      result.fold(
+        onSuccess: (user) {
+          AppSnackBar.showSuccess(
+            context,
+            'Alamat email berhasil diverifikasi!',
+          );
+          final isComplete = user.isProfileComplete;
+          if (!isComplete) {
+            context.go('/complete-profile');
+          } else {
+            context.go('/dashboard');
+          }
+        },
+        onFailure: (failure) {
+          AppSnackBar.showError(context, failure.message);
+        },
+      );
+    } else {
+      final result = await viewModel.verifyPasswordResetOtp(
+        email: widget.email,
+        otp: _currentOtp,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      result.fold(
+        onSuccess: (resetToken) {
+          AppSnackBar.showSuccess(context, 'Kode OTP berhasil diverifikasi.');
+          context.push(
+            '/reset-password',
+            extra: {
+              'email': widget.email,
+              'reset_token': resetToken,
+              'resetToken': resetToken,
+            },
+          );
+        },
+        onFailure: (failure) {
+          AppSnackBar.showError(context, failure.message);
+        },
+      );
+    }
   }
 
   @override
@@ -169,10 +232,12 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Verification Code',
+                      Text(
+                        _isEmailVerification
+                            ? 'Verifikasi Email'
+                            : 'Verification Code',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -183,7 +248,9 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 320),
                         child: Text(
-                          'We have sent the 6-digit OTP code to:',
+                          _isEmailVerification
+                              ? 'Kami telah mengirimkan 6 digit kode verifikasi ke:'
+                              : 'We have sent the 6-digit OTP code to:',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13.5,
@@ -221,10 +288,12 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Enter 6-Digit OTP Code',
+                    Text(
+                      _isEmailVerification
+                          ? 'Masukkan 6 Digit Kode OTP Verifikasi'
+                          : 'Enter 6-Digit OTP Code',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF1E293B),
@@ -255,7 +324,9 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
                                 const Icon(Icons.timer_outlined, size: 16, color: Color(0xFF64748B)),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Resend code in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
+                                  _isEmailVerification
+                                      ? 'Kirim ulang dalam 00:${_secondsRemaining.toString().padLeft(2, '0')}'
+                                      : 'Resend code in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
                                   style: const TextStyle(
                                     fontSize: 13.5,
                                     color: Color(0xFF64748B),
@@ -274,17 +345,21 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
                                     )
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: const [
+                                      children: [
                                         Text(
-                                          "Didn't receive the code? ",
-                                          style: TextStyle(
+                                          _isEmailVerification
+                                              ? 'Tidak menerima kode? '
+                                              : "Didn't receive the code? ",
+                                          style: const TextStyle(
                                             fontSize: 13.5,
                                             color: Color(0xFF64748B),
                                           ),
                                         ),
                                         Text(
-                                          'Resend Code',
-                                          style: TextStyle(
+                                          _isEmailVerification
+                                              ? 'Kirim Ulang'
+                                              : 'Resend Code',
+                                          style: const TextStyle(
                                             fontSize: 13.5,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors.primary,
@@ -320,9 +395,11 @@ class _VerifyOtpViewState extends ConsumerState<VerifyOtpView> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
-                                'Verify Code',
-                                style: TextStyle(
+                            : Text(
+                                _isEmailVerification
+                                    ? 'Verifikasi Email'
+                                    : 'Verify Code',
+                                style: const TextStyle(
                                   fontSize: 15.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.3,

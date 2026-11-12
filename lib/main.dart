@@ -44,7 +44,11 @@ Future<void> main() async {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     AppLogger.i('BOOT: Firebase berhasil diinisialisasi.');
   } catch (e, stack) {
-    AppLogger.e('BOOT: Gagal inisialisasi Firebase: $e', error: e, stackTrace: stack);
+    AppLogger.e(
+      'BOOT: Gagal inisialisasi Firebase: $e',
+      error: e,
+      stackTrace: stack,
+    );
   }
 
   // Inisialisasi Environment Variables (.env)
@@ -131,12 +135,15 @@ class _HeritageBatikAppState extends ConsumerState<HeritageBatikApp> {
       // Buat notification channel di Android 8+
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(channel);
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        AppLogger.i('FCM Foreground Message received: ${message.notification?.title}');
-        
+        AppLogger.i(
+          'FCM Foreground Message received: ${message.notification?.title}',
+        );
+
         if (ref.read(authViewModelProvider).isAuthenticated) {
           ref.read(notificationViewModelProvider.notifier).loadNotifications();
         }
@@ -153,7 +160,8 @@ class _HeritageBatikAppState extends ConsumerState<HeritageBatikApp> {
               android: AndroidNotificationDetails(
                 'high_importance_channel',
                 'High Importance Notifications',
-                channelDescription: 'This channel is used for important notifications.',
+                channelDescription:
+                    'This channel is used for important notifications.',
                 importance: Importance.max,
                 priority: Priority.high,
               ),
@@ -184,21 +192,21 @@ class _HeritageBatikAppState extends ConsumerState<HeritageBatikApp> {
     final router = ref.watch(routerProvider);
 
     // Segarkan wishlist dan notifikasi saat status login berubah (login -> muat, logout -> kosong).
-    ref.listen<bool>(
-      authViewModelProvider.select((s) => s.isAuthenticated),
-      (previous, next) {
-        if (previous == next) return;
-        final wishlist = ref.read(wishlistViewModelProvider.notifier);
-        final notifications = ref.read(notificationViewModelProvider.notifier);
-        if (next) {
-          wishlist.loadWishlist();
-          notifications.loadNotifications();
-        } else {
-          ref.invalidate(wishlistViewModelProvider);
-          ref.invalidate(notificationViewModelProvider);
-        }
-      },
-    );
+    ref.listen<bool>(authViewModelProvider.select((s) => s.isAuthenticated), (
+      previous,
+      next,
+    ) {
+      if (previous == next) return;
+      final wishlist = ref.read(wishlistViewModelProvider.notifier);
+      final notifications = ref.read(notificationViewModelProvider.notifier);
+      if (next) {
+        wishlist.loadWishlist();
+        notifications.loadNotifications();
+      } else {
+        ref.invalidate(wishlistViewModelProvider);
+        ref.invalidate(notificationViewModelProvider);
+      }
+    });
 
     return MaterialApp.router(
       title: 'ARBatik',

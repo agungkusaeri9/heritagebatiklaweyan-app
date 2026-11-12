@@ -13,6 +13,7 @@ class UserModel extends UserEntity {
     required super.role,
     super.avatarUrl,
     super.isProfileCompleteExplicit,
+    super.isEmailVerified = false,
     required super.createdAt,
   });
 
@@ -60,6 +61,9 @@ class UserModel extends UserEntity {
       isProfileCompleteExplicit: json['is_profile_complete'] is bool
           ? json['is_profile_complete'] as bool
           : null,
+      isEmailVerified: json['is_email_verified'] == true ||
+          (json['email_verified_at'] != null &&
+              json['email_verified_at'].toString().trim().isNotEmpty),
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -77,6 +81,7 @@ class UserModel extends UserEntity {
       'role': role,
       'avatar_url': avatarUrl,
       'is_profile_complete': isProfileComplete,
+      'is_email_verified': isEmailVerified,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -92,6 +97,7 @@ class UserModel extends UserEntity {
       role: role,
       avatarUrl: avatarUrl,
       isProfileCompleteExplicit: isProfileCompleteExplicit,
+      isEmailVerified: isEmailVerified,
       createdAt: createdAt,
     );
   }

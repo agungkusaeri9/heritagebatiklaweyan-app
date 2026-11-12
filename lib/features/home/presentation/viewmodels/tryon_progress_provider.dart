@@ -33,6 +33,7 @@ class TryOnProgressState {
 
 class TryOnProgressNotifier extends Notifier<TryOnProgressState> {
   Timer? _pollTimer;
+  bool _isPolling = false;
 
   @override
   TryOnProgressState build() {
@@ -40,16 +41,51 @@ class TryOnProgressNotifier extends Notifier<TryOnProgressState> {
     return const TryOnProgressState();
   }
 
-  void addTask(VirtualTryOnTaskItem task) {
+  void addTask(VirtualTryOnTaskItem task, {bool expand = true}) {
     final current = List<VirtualTryOnTaskItem>.from(state.activeTasks);
     final idx = current.indexWhere((t) => t.id == task.id);
     if (idx >= 0) {
-      current[idx] = task;
+      final old = current[idx];
+      current[idx] = _mergeTask(old, task);
     } else {
       current.insert(0, task);
     }
-    state = state.copyWith(activeTasks: current, isMinimized: false);
-    _startPolling();
+    state = state.copyWith(
+      activeTasks: current,
+      isMinimized: expand ? false : state.isMinimized,
+    );
+    if (current.any((t) => t.isActive)) {
+      _ensurePollingStarted();
+    } else {
+      _stopPolling();
+    }
+  }
+
+  VirtualTryOnTaskItem _mergeTask(
+    VirtualTryOnTaskItem oldTask,
+    VirtualTryOnTaskItem fresh,
+  ) {
+    return VirtualTryOnTaskItem(
+      id: fresh.id,
+      productId: fresh.productId ?? oldTask.productId,
+      productName: fresh.productName ?? oldTask.productName,
+      productPrice: fresh.productPrice ?? oldTask.productPrice,
+      productSku: fresh.productSku ?? oldTask.productSku,
+      productImageUrl: fresh.productImageUrl ?? oldTask.productImageUrl,
+      virtualTryOnModelId:
+          fresh.virtualTryOnModelId ?? oldTask.virtualTryOnModelId,
+      modelName: fresh.modelName ?? oldTask.modelName,
+      modelPhotoUrl: fresh.modelPhotoUrl ?? oldTask.modelPhotoUrl,
+      gender: fresh.gender ?? oldTask.gender,
+      status: fresh.status,
+      progress: fresh.progress,
+      stepLabel: fresh.stepLabel ?? oldTask.stepLabel,
+      photoUrl: fresh.photoUrl ?? oldTask.photoUrl,
+      videoUrl: fresh.videoUrl ?? oldTask.videoUrl,
+      generateVideo: fresh.generateVideo,
+      errorMessage: fresh.errorMessage,
+      createdAt: fresh.createdAt ?? oldTask.createdAt,
+    );
   }
 
   void removeTask(int taskId) {
@@ -73,10 +109,10 @@ class TryOnProgressNotifier extends Notifier<TryOnProgressState> {
     state = state.copyWith(isMinimized: value);
   }
 
-  void _startPolling() {
-    _stopPolling();
+  void _ensurePollingStarted() {
+    if (_pollTimer != null && _pollTimer!.isActive) return;
     _pollTimer = Timer.periodic(
-      const Duration(seconds: 3),
+      const Duration(seconds: 4),
       (_) => _pollAll(),
     );
   }
@@ -84,9 +120,12 @@ class TryOnProgressNotifier extends Notifier<TryOnProgressState> {
   void _stopPolling() {
     _pollTimer?.cancel();
     _pollTimer = null;
+    _isPolling = false;
   }
 
   Future<void> _pollAll() async {
+    if (_isPolling) return;
+
     final tasks = state.activeTasks;
     final activeTasks = tasks.where((t) => t.isActive).toList();
     if (activeTasks.isEmpty) {
@@ -94,23 +133,28 @@ class TryOnProgressNotifier extends Notifier<TryOnProgressState> {
       return;
     }
 
-    final repo = ref.read(homeRepositoryProvider);
-    final updated = List<VirtualTryOnTaskItem>.from(tasks);
+    _isPolling = true;
+    try {
+      final repo = ref.read(homeRepositoryProvider);
+      final updated = List<VirtualTryOnTaskItem>.from(state.activeTasks);
 
-    for (final task in activeTasks) {
-      try {
-        final fresh = await repo.getVirtualTryOnProgress(task.id);
-        final idx = updated.indexWhere((t) => t.id == task.id);
-        if (idx >= 0) {
-          updated[idx] = fresh;
-        }
-      } catch (_) {}
-    }
+      for (final task in activeTasks) {
+        try {
+          final fresh = await repo.getVirtualTryOnProgress(task.id);
+          final idx = updated.indexWhere((t) => t.id == task.id);
+          if (idx >= 0) {
+            updated[idx] = _mergeTask(updated[idx], fresh);
+          }
+        } catch (_) {}
+      }
 
-    state = state.copyWith(activeTasks: updated);
+      state = state.copyWith(activeTasks: updated);
 
-    if (!updated.any((t) => t.isActive)) {
-      _stopPolling();
+      if (!updated.any((t) => t.isActive)) {
+        _stopPolling();
+      }
+    } finally {
+      _isPolling = false;
     }
   }
 }

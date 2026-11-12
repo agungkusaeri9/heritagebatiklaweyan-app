@@ -93,12 +93,36 @@ class StoreInfoCard extends StatelessWidget {
                                     color: Color(0xFF64748B),
                                   ),
                                   const SizedBox(width: 3),
-                                  Text(
-                                    storeDistance,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w500,
-                                      color: const Color(0xFF64748B),
+                                  Flexible(
+                                    child: Text(
+                                      storeDistance,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Soon',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFFB45309),
+                                        letterSpacing: 0.2,
+                                      ),
                                     ),
                                   ),
                                 ],

@@ -223,6 +223,45 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<String>> sendEmailVerificationOtp({required String email}) async {
+    try {
+      final message = await remoteDataSource.sendEmailVerificationOtp(email: email);
+      return Success(message);
+    } on NetworkException catch (e) {
+      return ErrorResult(NetworkFailure(message: e.message));
+    } on ApiException catch (e) {
+      return ErrorResult(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } catch (e, stack) {
+      AppLogger.e('AuthRepository sendEmailVerificationOtp error', error: e, stackTrace: stack);
+      return ErrorResult(UnknownFailure(message: 'Gagal mengirim OTP verifikasi email: $e'));
+    }
+  }
+
+  @override
+  Future<Result<UserEntity>> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final user = await remoteDataSource.verifyEmailOtp(
+        email: email,
+        otp: otp,
+      );
+      // Perbarui cache user lokal
+      await localDataSource.cacheUser(user);
+      AppLogger.i('AuthRepository: Email untuk ${user.email} berhasil diverifikasi.');
+      return Success(user.toEntity());
+    } on NetworkException catch (e) {
+      return ErrorResult(NetworkFailure(message: e.message));
+    } on ApiException catch (e) {
+      return ErrorResult(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } catch (e, stack) {
+      AppLogger.e('AuthRepository verifyEmailOtp error', error: e, stackTrace: stack);
+      return ErrorResult(UnknownFailure(message: 'Gagal verifikasi kode OTP email: $e'));
+    }
+  }
+
+  @override
   Future<void> updateFcmTokenAfterLogin() async {
     try {
       AppLogger.i('AuthRepository: FCM token sync requested after login.');

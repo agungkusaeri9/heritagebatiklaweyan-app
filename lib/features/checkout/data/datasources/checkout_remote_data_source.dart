@@ -210,6 +210,7 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
         final listData = responseData['data'];
         if (listData is List) {
           final List<ShippingTypeModel> shippingList = [];
+          int optionIndex = 1;
 
           for (final item in listData) {
             if (item is Map<String, dynamic>) {
@@ -233,9 +234,13 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
                 courierId = 3;
               }
 
+              // ID unik per opsi agar layanan dari kurir yang sama tidak bentrok (misal JNE Trucking vs Regular)
+              final uniqueOptionId = (courierId * 1000) + (optionIndex++);
+
               shippingList.add(
                 ShippingTypeModel(
-                  id: courierId,
+                  id: uniqueOptionId,
+                  courierId: courierId,
                   name: '$courierName - $serviceName',
                   code: '${courierCode}_$serviceName'.toLowerCase(),
                   description: desc,

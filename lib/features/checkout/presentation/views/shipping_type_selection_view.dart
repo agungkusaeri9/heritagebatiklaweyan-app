@@ -71,7 +71,7 @@ class _ShippingTypeSelectionViewState
                       itemCount: shippingTypes.length,
                       itemBuilder: (context, index) {
                         final type = shippingTypes[index];
-                        final isSelected = _tempSelectedShippingType?.id == type.id;
+                        final isSelected = _tempSelectedShippingType?.code == type.code;
                         return _buildShippingTypeCard(type, isSelected);
                       },
                     ),
@@ -143,20 +143,20 @@ class _ShippingTypeSelectionViewState
 
   Widget _buildShippingTypeCard(ShippingTypeModel type, bool isSelected) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () {
           setState(() {
             _tempSelectedShippingType = type;
           });
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFFFFF7F2) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
               width: isSelected ? 1.5 : 1.0,
@@ -164,9 +164,9 @@ class _ShippingTypeSelectionViewState
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                      color: AppColors.primary.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                   ]
                 : [],
@@ -175,9 +175,9 @@ class _ShippingTypeSelectionViewState
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Radio Button
-              Radio<int>(
-                value: type.id,
-                groupValue: _tempSelectedShippingType?.id,
+              Radio<String>(
+                value: type.code,
+                groupValue: _tempSelectedShippingType?.code,
                 activeColor: AppColors.primary,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
@@ -188,17 +188,17 @@ class _ShippingTypeSelectionViewState
                 },
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
 
-              // Ikon Truk Pengiriman
+              // Ikon Truk Pengiriman (Kompak 34x34)
               Container(
-                width: 42,
-                height: 42,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.primary.withValues(alpha: 0.12)
                       : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isSelected
                         ? AppColors.primary.withValues(alpha: 0.2)
@@ -207,12 +207,12 @@ class _ShippingTypeSelectionViewState
                 ),
                 child: Icon(
                   Icons.local_shipping_outlined,
-                  size: 22,
+                  size: 18,
                   color: isSelected ? AppColors.primary : const Color(0xFF475569),
                 ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
 
               // Detail Kurir (Nama dan Estimasi)
               Expanded(
@@ -222,18 +222,18 @@ class _ShippingTypeSelectionViewState
                     Text(
                       type.name,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14.5,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF0F172A),
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       type.description ?? type.estimatedDays,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         color: const Color(0xFF64748B),
-                        height: 1.3,
+                        height: 1.25,
                       ),
                     ),
                   ],
@@ -246,7 +246,7 @@ class _ShippingTypeSelectionViewState
               Text(
                 type.formattedFee,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14.5,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.w700,
                   color: isSelected ? AppColors.primary : const Color(0xFF0F172A),
                 ),

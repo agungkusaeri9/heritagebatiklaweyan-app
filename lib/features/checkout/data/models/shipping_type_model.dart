@@ -3,6 +3,7 @@ import '../../../../core/utils/currency_formatter.dart';
 /// Model data untuk kurir dan opsi tipe pengiriman (Shipping Type)
 class ShippingTypeModel {
   final int id;
+  final int? courierId;
   final String name;
   final String code;
   final String? description;
@@ -13,6 +14,7 @@ class ShippingTypeModel {
 
   const ShippingTypeModel({
     required this.id,
+    this.courierId,
     required this.name,
     required this.code,
     this.description,
@@ -21,6 +23,9 @@ class ShippingTypeModel {
     this.estimatedDays = 'Estimated Arrival 2 - 3 Days',
     this.isActive = true,
   });
+
+  /// ID kurir asli di database (1: JNE, 2: POS, 3: TIKI, dll)
+  int get effectiveCourierId => courierId ?? id;
 
   factory ShippingTypeModel.fromJson(Map<String, dynamic> json) {
     final codeStr = json['code']?.toString().toLowerCase() ?? '';
@@ -35,10 +40,15 @@ class ShippingTypeModel {
       defaultEst = 'Estimated Arrival 1 - 2 Days';
     }
 
+    final courierIdVal = json['courier_id'] is int
+        ? json['courier_id'] as int
+        : int.tryParse(json['courier_id']?.toString() ?? '');
+
     return ShippingTypeModel(
       id: json['id'] is int
           ? json['id'] as int
           : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
+      courierId: courierIdVal,
       name: json['name'] as String? ?? 'Pengiriman Standar',
       code: json['code'] as String? ?? 'std',
       description: json['description'] as String?,
@@ -57,6 +67,7 @@ class ShippingTypeModel {
 
   ShippingTypeModel copyWith({
     int? id,
+    int? courierId,
     String? name,
     String? code,
     String? description,
@@ -67,6 +78,7 @@ class ShippingTypeModel {
   }) {
     return ShippingTypeModel(
       id: id ?? this.id,
+      courierId: courierId ?? this.courierId,
       name: name ?? this.name,
       code: code ?? this.code,
       description: description ?? this.description,
@@ -76,4 +88,15 @@ class ShippingTypeModel {
       isActive: isActive ?? this.isActive,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ShippingTypeModel &&
+          runtimeType == other.runtimeType &&
+          code == other.code &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode ^ code.hashCode;
 }

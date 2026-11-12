@@ -43,5 +43,12 @@ abstract class AuthRepository {
     required String passwordConfirmation,
   });
 
+  Future<Result<String>> sendEmailVerificationOtp({required String email});
+
+  Future<Result<UserEntity>> verifyEmailOtp({
+    required String email,
+    required String otp,
+  });
+
   Future<void> updateFcmTokenAfterLogin();
 }

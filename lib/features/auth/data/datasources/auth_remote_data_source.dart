@@ -45,6 +45,13 @@ abstract class AuthRemoteDataSource {
     required String password,
     required String passwordConfirmation,
   });
+
+  Future<String> sendEmailVerificationOtp({required String email});
+
+  Future<UserModel> verifyEmailOtp({
+    required String email,
+    required String otp,
+  });
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -469,6 +476,84 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       AppLogger.e('Error resetting password', error: e, stackTrace: stack);
       if (e is ApiException) rethrow;
       throw ApiException(message: 'Gagal mereset kata sandi: $e');
+    }
+  }
+
+  @override
+  Future<String> sendEmailVerificationOtp({required String email}) async {
+    try {
+      AppLogger.i('AuthRemoteDataSource: Mengirim OTP verifikasi email ke $email');
+      final candidateEndpoints = [
+        ApiConstants.sendEmailVerificationOtp,
+        '/auth/email/send-otp',
+        '/email/send-otp',
+        '${ApiConstants.apiBaseUrl}/auth/email/send-otp',
+      ];
+
+      final payload = {'email': email.trim()};
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map<String, dynamic>) {
+        final data = response.data as Map<String, dynamic>;
+        final message = data['message'] ??
+            (data['meta'] is Map ? data['meta']['message'] : null);
+        if (message != null && message.toString().trim().isNotEmpty) {
+          return message.toString().trim();
+        }
+      }
+      return 'Kode OTP verifikasi telah dikirimkan ke email Anda.';
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error sending email verification OTP', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal mengirim kode verifikasi email: $e');
+    }
+  }
+
+  @override
+  Future<UserModel> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      AppLogger.i('AuthRemoteDataSource: Memverifikasi OTP email untuk $email');
+      final candidateEndpoints = [
+        ApiConstants.verifyEmailVerificationOtp,
+        '/auth/email/verify-otp',
+        '/email/verify-otp',
+        '${ApiConstants.apiBaseUrl}/auth/email/verify-otp',
+      ];
+
+      final payload = {
+        'email': email.trim(),
+        'otp': otp.trim(),
+      };
+      final response = await _postWithFallback(candidateEndpoints, payload);
+
+      if (response.data is Map) {
+        final data = response.data as Map;
+        final innerData = data['data'];
+        if (innerData is Map && innerData['user'] is Map) {
+          return UserModel.fromJson(
+            Map<String, dynamic>.from(innerData['user'] as Map),
+          );
+        }
+        if (data['user'] is Map) {
+          return UserModel.fromJson(
+            Map<String, dynamic>.from(data['user'] as Map),
+          );
+        }
+      }
+      throw const ApiException(
+        message: 'Respon verifikasi email dari server tidak valid.',
+      );
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Error verifying email OTP', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal memverifikasi kode verifikasi email: $e');
     }
   }
 }

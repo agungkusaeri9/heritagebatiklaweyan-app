@@ -177,6 +177,7 @@ class CheckoutResultModel {
   final String? cityName;
   final String? subdistrictName;
   final String? postalCode;
+  final String? storeWhatsapp;
   final List<CheckoutOrderItemModel> items;
   final bool isReviewedExplicit;
   final int reviewedCount;
@@ -217,6 +218,7 @@ class CheckoutResultModel {
     this.cityName,
     this.subdistrictName,
     this.postalCode,
+    this.storeWhatsapp,
     this.items = const [],
     this.isReviewedExplicit = false,
     this.reviewedCount = 0,
@@ -491,6 +493,7 @@ class CheckoutResultModel {
     String? cityName,
     String? subdistrictName,
     String? postalCode,
+    String? storeWhatsapp,
     List<CheckoutOrderItemModel>? items,
     bool? isReviewedExplicit,
     int? reviewedCount,
@@ -529,6 +532,7 @@ class CheckoutResultModel {
       cityName: cityName ?? this.cityName,
       subdistrictName: subdistrictName ?? this.subdistrictName,
       postalCode: postalCode ?? this.postalCode,
+      storeWhatsapp: storeWhatsapp ?? this.storeWhatsapp,
       items: items ?? this.items,
       isReviewedExplicit: isReviewedExplicit ?? this.isReviewedExplicit,
       reviewedCount: reviewedCount ?? this.reviewedCount,
@@ -578,6 +582,7 @@ class CheckoutResultModel {
       cityName: detail.cityName ?? cityName,
       subdistrictName: detail.subdistrictName ?? subdistrictName,
       postalCode: detail.postalCode ?? postalCode,
+      storeWhatsapp: detail.storeWhatsapp ?? storeWhatsapp,
       items: detail.items.isNotEmpty ? detail.items : items,
       isReviewedExplicit: detail.isReviewedExplicit || isReviewedExplicit,
       reviewedCount: detail.reviewedCount > 0
@@ -865,6 +870,10 @@ class CheckoutResultModel {
       cityName: citName,
       subdistrictName: subName,
       postalCode: postCode,
+      storeWhatsapp: json['store_whatsapp']?.toString() ??
+          (json['store_contact'] is Map
+              ? (json['store_contact'] as Map)['whatsapp']?.toString()
+              : null),
       items: itemsList,
       isReviewedExplicit: parsedIsReviewed,
       reviewedCount: parsedReviewedCount,

@@ -9,6 +9,7 @@ class UserEntity {
   final String role;
   final String? avatarUrl;
   final bool? isProfileCompleteExplicit;
+  final bool isEmailVerified;
   final DateTime createdAt;
 
   const UserEntity({
@@ -21,6 +22,7 @@ class UserEntity {
     required this.role,
     this.avatarUrl,
     this.isProfileCompleteExplicit,
+    this.isEmailVerified = false,
     required this.createdAt,
   });
 
@@ -44,6 +46,7 @@ class UserEntity {
     String? role,
     String? avatarUrl,
     bool? isProfileCompleteExplicit,
+    bool? isEmailVerified,
     DateTime? createdAt,
   }) {
     return UserEntity(
@@ -57,6 +60,7 @@ class UserEntity {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       isProfileCompleteExplicit:
           isProfileCompleteExplicit ?? this.isProfileCompleteExplicit,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       createdAt: createdAt ?? this.createdAt,
     );
   }

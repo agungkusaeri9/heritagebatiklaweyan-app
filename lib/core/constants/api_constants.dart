@@ -61,6 +61,9 @@ class ApiConstants {
       '/auth/forgot-password/verify-otp';
   static const String forgotPasswordReset =
       '/auth/forgot-password/reset-password';
+  static const String sendEmailVerificationOtp = '/auth/email/send-otp';
+  static const String verifyEmailVerificationOtp = '/auth/email/verify-otp';
+  static const String resendEmailVerificationOtp = '/auth/email/resend-otp';
 
   // Store & Master Data Endpoints
   static const String ping = '/ping';

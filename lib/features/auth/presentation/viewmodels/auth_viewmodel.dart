@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/utils/result.dart';
+import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
 import '../../domain/usecases/login_usecase.dart';
@@ -286,6 +287,50 @@ class AuthViewModel extends Notifier<AuthState> {
         state = state
             .copyWith(status: AuthStatus.error, errorMessage: failure.message)
             .addLog('Reset kata sandi gagal: ${failure.message}');
+      },
+    );
+    return result;
+  }
+
+  /// Kirim kode OTP verifikasi email
+  Future<Result<String>> sendEmailVerificationOtp(String email) async {
+    state = state.addLog('Mengirim kode OTP verifikasi email...');
+    final result = await _authRepository.sendEmailVerificationOtp(email: email);
+    result.fold(
+      onSuccess: (msg) {
+        state = state.addLog(msg);
+      },
+      onFailure: (failure) {
+        state = state.addLog('Gagal kirim OTP verifikasi: ${failure.message}');
+      },
+    );
+    return result;
+  }
+
+  /// Verifikasi kode OTP verifikasi email
+  Future<Result<UserEntity>> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    state = state.addLog('Memverifikasi kode OTP email...');
+    final result = await _authRepository.verifyEmailOtp(
+      email: email,
+      otp: otp,
+    );
+    result.fold(
+      onSuccess: (user) {
+        state = state
+            .copyWith(
+              user: user,
+              status: AuthStatus.authenticated,
+              clearError: true,
+            )
+            .addLog('Email berhasil diverifikasi.');
+      },
+      onFailure: (failure) {
+        state = state
+            .copyWith(errorMessage: failure.message)
+            .addLog('Verifikasi email gagal: ${failure.message}');
       },
     );
     return result;
