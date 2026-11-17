@@ -4,6 +4,33 @@ Dokumentasi riwayat pembaruan dan pengembangan aplikasi Heritage Batik Laweyan.
 
 ---
 
+## [1.0.0] - 2026-11-17
+
+Rilis resmi versi **1.0.0** aplikasi mobile **Heritage Batik Laweyan** dengan alur penuh **Checkout by Aplikasi** (pemesanan, pemilihan ongkos kirim & kurir, pembayaran, unggah bukti transfer, konfirmasi WhatsApp, pelacakan pesanan, hingga ulasan produk) serta integrasi Virtual Try-On, Wishlist, Push Notification (FCM), dan verifikasi OTP email.
+
+### Fitur & Peningkatan Rilis v1.0.0:
+
+#### 1. Alur Lengkap Checkout by Aplikasi & Konfirmasi Pesanan
+- **Pemilihan Alamat, Kurir & Layanan Pengiriman**:
+  - Perbaikan bug multi-seleksi layanan kurir (mis. JNE Trucking vs Regular) pada `ShippingTypeSelectionView` dan `ShippingTypeBottomSheet` dengan tampilan pilihan layanan pengiriman yang lebih ringkas.
+- **Konfirmasi WhatsApp & Unggah Bukti Pembayaran (`OrderDetailView`)**:
+  - Penambahan banner notifikasi proses cepat pada detail pesanan saat bukti pembayaran telah diunggah.
+  - Penambahan tombol **Chat WhatsApp** resmi berdampingan dengan tombol **Track Order** pada detail pesanan.
+  - Resolusi nomor WhatsApp toko secara dinamis dari detail pesanan dan pengaturan toko backend (`url_launcher`, `font_awesome_flutter`, dan konfigurasi intent Android pada `AndroidManifest.xml`).
+
+#### 2. Verifikasi OTP Email Setelah Registrasi
+- Implementasi layar verifikasi OTP email setelah registrasi (`VerifyOtpView` & `RegisterView`) lengkap dengan timer kirim ulang 60 detik dan integrasi endpoint verifikasi backend.
+
+#### 3. Virtual Try-On Produk & Pelacakan Progres
+- Penambahan tampilan Virtual Try-On produk (`ProductVirtualTryOnView`, `VirtualTryOnListView`, `VirtualTryOnDetailView`) serta indikator progres mengambang (`FloatingTryonProgress` & `TryonProgressProvider`).
+
+#### 4. Integrasi Home Banner, Wishlist, Toko & Notifikasi Push (FCM)
+- **Home & Caching**: Integrasi banner promo dari backend, loading skeleton (`HomeSkeletonLoading`, `PromoCarouselSkeleton`), serta local caching 1 jam pada Home.
+- **Wishlist & Store Detail**: Integrasi fitur Wishlist ke backend API (`WishlistView`) dan halaman detail toko (`StoreDetailView`).
+- **Push Notification (FCM) & Session**: Integrasi Firebase Cloud Messaging (`firebase_core`, `firebase_messaging`, `flutter_local_notifications`), sinkronisasi token FCM, normalisasi URL media, dan `SessionExpiryBus` pada `AuthInterceptor`.
+
+---
+
 ## [0.5.0-alpha.8] - 2026-10-28
 
 Implementasi fitur Layar Daftar Pesanan (My Orders Screen) dengan pengelompokan berdasarkan tanggal (Date Grouping), 3 Tab Status (Active, Completed, Cancelled), Ringkasan Produk Utama untuk Multi-Produk, Layar Detail Pesanan (Order Detail Screen) dengan seluruh produk dan rincian biaya lengkap, Layar Lacak Pengiriman (Track Order Screen), Fitur Penilaian & Ulasan Transaksi dan Multi-Produk (`LeaveReviewView`), serta Layar Edit Profil Pengguna (Your Profile Screen) yang terintegrasi langsung dengan menu Account dan sinkronisasi realtime ke backend API.
