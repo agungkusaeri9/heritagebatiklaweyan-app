@@ -6,8 +6,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
 import '../../../cart/presentation/viewmodels/cart_providers.dart';
-import '../../../checkout/presentation/views/order_list_view.dart';
+// import '../../../checkout/presentation/views/order_list_view.dart';
 import '../../../wishlist/presentation/views/wishlist_view.dart';
+import 'virtual_try_on_list_view.dart';
 import '../../../profile/presentation/widgets/profile_header.dart';
 import '../../../profile/presentation/widgets/profile_information.dart';
 import '../../../profile/presentation/widgets/profile_menu_list.dart';
@@ -39,6 +40,7 @@ class HomeView extends ConsumerStatefulWidget {
 
 class _HomeViewState extends ConsumerState<HomeView> {
   late int _currentTabIndex;
+  int _historyRefreshTrigger = 0;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _homeScrollController = ScrollController();
 
@@ -153,6 +155,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
         onTabSelected: (index) {
           setState(() {
             _currentTabIndex = index;
+            if (index == 2) {
+              _historyRefreshTrigger += 1;
+            }
           });
         },
       ),
@@ -169,7 +174,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
       onRefresh: () async {
         await Future.wait([
           ref.read(homeViewModelProvider.notifier).initHome(isRefresh: true),
-          ref.read(notificationViewModelProvider.notifier).loadNotifications(isRefresh: true),
+          ref
+              .read(notificationViewModelProvider.notifier)
+              .loadNotifications(isRefresh: true),
         ]);
         if (mounted) {
           AppSnackBar.showSuccess(context, 'Halaman beranda diperbarui.');
@@ -230,7 +237,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   banners: homeState.banners,
                   onBannerTap: (index) {
                     if (index < homeState.banners.length) {
-                      _handleBannerTap(homeState.banners.length > index ? homeState.banners[index] : homeState.banners.first);
+                      _handleBannerTap(
+                        homeState.banners.length > index
+                            ? homeState.banners[index]
+                            : homeState.banners.first,
+                      );
                     }
                   },
                 ),
@@ -238,9 +249,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
               ],
 
               // 4. Information Card (Toko & Jarak + Poin URBatik)
-              StoreInfoCard(onStoreTap: () => context.push('/store/1')),
+              // StoreInfoCard(onStoreTap: () => context.push('/store/1')),
 
-              const SizedBox(height: 12),
+              // const SizedBox(height: 12),
 
               // 5. Category Section (Integrasi Backend & Filter Produk)
               CategorySection(
@@ -384,10 +395,21 @@ class _HomeViewState extends ConsumerState<HomeView> {
     );
   }
 
-  /// Tampilan Tab History (Riwayat Pesanan & Transaksi - My Orders)
+  /// Tampilan Tab History (Riwayat Virtual Try-On Batik Pengguna)
   Widget _buildHistoryTab() {
+    /*
     return OrderListView(
       embedded: true,
+      onBackTap: () {
+        setState(() {
+          _currentTabIndex = 0;
+        });
+      },
+    );
+    */
+    return VirtualTryOnListView(
+      embedded: true,
+      refreshTrigger: _historyRefreshTrigger,
       onBackTap: () {
         setState(() {
           _currentTabIndex = 0;
@@ -407,7 +429,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
         ? user.name
         : (user?.username != null && user!.username.trim().isNotEmpty)
         ? user.username
-        : 'Agung Kusaeri';
+        : 'Guest';
 
     final String? avatarUrl = user?.avatarUrl;
 

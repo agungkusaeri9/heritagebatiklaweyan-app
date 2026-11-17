@@ -106,7 +106,7 @@ class BestSellerSection extends StatelessWidget {
 
         // 2. Daftar Kartu Produk Horizontal
         SizedBox(
-          height: 275,
+          height: 255,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             scrollDirection: Axis.horizontal,

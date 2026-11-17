@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/viewmodels/auth_providers.dart';
-import '../../../cart/presentation/viewmodels/cart_providers.dart';
-import '../../../cart/presentation/viewmodels/cart_state.dart';
+// import '../../../cart/presentation/viewmodels/cart_providers.dart';
+// import '../../../cart/presentation/viewmodels/cart_state.dart';
 import '../../../store/data/models/store_setting_model.dart';
 import '../../../store/presentation/viewmodels/store_providers.dart';
 import '../../../wishlist/presentation/viewmodels/wishlist_providers.dart';
@@ -42,9 +45,10 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
   int _selectedImageIndex = 0;
   late final PageController _imagePageController;
   final ScrollController _scrollController = ScrollController();
-  bool _isAddingToCart = false;
+  // bool _isAddingToCart = false;
   bool? _localFavoriteOverride;
 
+  /*
   // State Ulasan Produk (Reviews + Filter Bintang + Infinite Scroll Pagination)
   List<ProductReviewItem> _reviews = [];
   ProductRatingStats _ratingStats = const ProductRatingStats();
@@ -54,29 +58,30 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
   bool _isLoadingReviews = false;
   bool _isLoadingMoreReviews = false;
   String? _reviewsErrorMessage;
+  */
 
   @override
   void initState() {
     super.initState();
     _imagePageController = PageController(initialPage: _selectedImageIndex);
-    _scrollController.addListener(_onDetailScroll);
+    // _scrollController.addListener(_onDetailScroll);
     _product = widget.initialProduct;
     _store = widget.initialProduct?.store;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final cartState = ref.read(cartViewModelProvider);
-      if (cartState.status == CartStatus.initial) {
-        ref.read(cartViewModelProvider.notifier).loadCart();
-      }
+      // final cartState = ref.read(cartViewModelProvider);
+      // if (cartState.status == CartStatus.initial) {
+      //   ref.read(cartViewModelProvider.notifier).loadCart();
+      // }
       _fetchProductAndStore(silent: _product != null);
-      _fetchProductReviews(page: 1, reset: true);
+      // _fetchProductReviews(page: 1, reset: true);
     });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onDetailScroll);
+    // _scrollController.removeListener(_onDetailScroll);
     _scrollController.dispose();
     _imagePageController.dispose();
     super.dispose();
@@ -111,6 +116,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
     }
   }
 
+  /*
   void _onDetailScroll() {
     if (!_scrollController.hasClients) return;
     final maxScroll = _scrollController.position.maxScrollExtent;
@@ -222,6 +228,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
     });
     _fetchProductReviews(page: 1, reset: true);
   }
+  */
 
   void _selectImageIndex(int index, {bool animatePage = true}) {
     if (_selectedImageIndex != index) {
@@ -255,7 +262,15 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
         widget.productId,
       );
 
-      StoreSettingModel? resolvedStore = fetchedProduct.store ?? cachedStore;
+      StoreSettingModel? resolvedStore = fetchedProduct.store;
+      if (resolvedStore == null && fetchedProduct.storeId > 0) {
+        try {
+          resolvedStore = await storeDataSource.getStoreById(
+            fetchedProduct.storeId,
+          );
+        } catch (_) {}
+      }
+      resolvedStore ??= cachedStore;
       if (resolvedStore == null) {
         try {
           resolvedStore = await storeDataSource.getStoreSetting();
@@ -302,6 +317,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
       } else {
         setState(() {
           _store ??=
+              _product?.store ??
               ref.read(currentStoreSettingProvider) ??
               HomeDummyData.defaultStore;
           _isLoading = false;
@@ -349,6 +365,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
     }
   }
 
+  /*
   void _showAddToCartBottomSheet(BuildContext context, ProductItem product) {
     if (!product.isInStock || product.stock <= 0) {
       AppSnackBar.showError(
@@ -472,6 +489,214 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
       }
     }
   }
+  */
+
+  void _showWhatsAppCheckoutBottomSheet(
+    BuildContext context,
+    ProductItem product,
+    StoreSettingModel store,
+  ) {
+    if (!product.isInStock || product.stock <= 0) {
+      AppSnackBar.showError(
+        context,
+        'Maaf, produk ini sedang kehabisan stok (Out of Stock).',
+      );
+      return;
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _WhatsAppCheckoutBottomSheet(
+          product: product,
+          store: store,
+          onConfirmCheckout: (int quantity, String? variantInfo) async {
+            return _executeWhatsAppCheckout(
+              product,
+              store,
+              quantity: quantity,
+              variantInfo: variantInfo,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<bool> _executeWhatsAppCheckout(
+    ProductItem product,
+    StoreSettingModel store, {
+    required int quantity,
+    String? variantInfo,
+  }) async {
+    if (!product.isInStock || product.stock <= 0) {
+      AppSnackBar.showError(
+        context,
+        'Maaf, produk ini sedang kehabisan stok (Out of Stock).',
+      );
+      return false;
+    }
+
+    if (quantity < 1) {
+      AppSnackBar.showError(context, 'Jumlah pembelian minimal 1 pcs.');
+      return false;
+    }
+
+    // 1. Ambil nomor WhatsApp langsung dari relasi store milik produk (endpoint detail product)
+    ProductItem activeProduct = product;
+    StoreSettingModel? relationStore = activeProduct.store;
+    String? rawWa = relationStore?.whatsapp?.trim();
+
+    // 2. Jika relasi store / nomor WA belum terisi di state produk, fetch ulang endpoint detail product
+    if (rawWa == null || rawWa.isEmpty) {
+      try {
+        final targetId = activeProduct.slug.isNotEmpty
+            ? activeProduct.slug
+            : widget.productId;
+        final freshProduct = await ref
+            .read(homeRepositoryProvider)
+            .getProductDetail(targetId);
+        activeProduct = freshProduct;
+        relationStore = freshProduct.store;
+        rawWa = relationStore?.whatsapp?.trim();
+
+        if (mounted && relationStore != null) {
+          setState(() {
+            _product = freshProduct;
+            _store = relationStore;
+          });
+        }
+      } catch (_) {}
+    }
+
+    final StoreSettingModel targetStore = relationStore ?? store;
+
+    // 3. Fallback terakhir bila kolom whatsapp pada relasi store kosong
+    if (rawWa == null || rawWa.isEmpty) {
+      rawWa = (targetStore.whatsapp != null &&
+              targetStore.whatsapp!.trim().isNotEmpty)
+          ? targetStore.whatsapp!.trim()
+          : (targetStore.phone != null && targetStore.phone!.trim().isNotEmpty
+              ? targetStore.phone!.trim()
+              : null);
+    }
+
+    if (rawWa == null || rawWa.isEmpty) {
+      if (mounted) {
+        AppSnackBar.showError(
+          context,
+          'Nomor WhatsApp toko ${targetStore.name} belum tersedia.',
+        );
+      }
+      return false;
+    }
+
+    // Normalisasi ke format nomor internasional (08... -> 628...)
+    String waNumber = rawWa.replaceAll(RegExp(r'\D'), '');
+    if (waNumber.startsWith('0')) {
+      waNumber = '62${waNumber.substring(1)}';
+    }
+    if (waNumber.isEmpty) {
+      if (mounted) {
+        AppSnackBar.showError(
+          context,
+          'Nomor WhatsApp toko ${targetStore.name} tidak valid.',
+        );
+      }
+      return false;
+    }
+
+    final String unitPriceFormatted = ProductItem.formatRupiah(
+      activeProduct.discountedPrice,
+    );
+    final String totalPriceFormatted = ProductItem.formatRupiah(
+      activeProduct.discountedPrice * quantity,
+    );
+    final String variantLine =
+        (variantInfo != null && variantInfo.trim().isNotEmpty)
+        ? '\n• *Varian:* ${variantInfo.trim()}'
+        : '';
+
+    final String message = '''
+Halo Admin *${targetStore.name}*,
+Saya ingin memesan produk berikut melalui aplikasi Heritage Batik Laweyan:
+
+• *Nama Produk:* ${activeProduct.name}$variantLine
+• *Quantity:* $quantity pcs
+• *Harga per Unit:* $unitPriceFormatted / pcs
+• *Total Harga:* $totalPriceFormatted
+
+Mohon informasi ketersediaan stok serta langkah pembayarannya. Terima kasih!
+'''.trim();
+
+    final String encodedMessage = Uri.encodeComponent(message);
+    final Uri nativeWaUri = Uri.parse(
+      'whatsapp://send?phone=$waNumber&text=$encodedMessage',
+    );
+    final Uri shortWaUri = Uri.parse(
+      'https://wa.me/$waNumber?text=$encodedMessage',
+    );
+    final Uri webWaUri = Uri.parse(
+      'https://api.whatsapp.com/send?phone=$waNumber&text=$encodedMessage',
+    );
+
+    try {
+      final launchedNative = await launchUrl(
+        nativeWaUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launchedNative) return true;
+
+      final launchedShort = await launchUrl(
+        shortWaUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launchedShort) return true;
+
+      final launchedWeb = await launchUrl(
+        webWaUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launchedWeb) return true;
+
+      if (mounted) {
+        await Clipboard.setData(ClipboardData(text: message));
+        if (!mounted) return true;
+        AppSnackBar.showError(
+          context,
+          'Aplikasi WhatsApp tidak ditemukan. Format pesanan telah disalin ke clipboard.',
+        );
+      }
+      return true;
+    } catch (_) {
+      try {
+        final launchedFallback = await launchUrl(
+          shortWaUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launchedFallback && mounted) {
+          await Clipboard.setData(ClipboardData(text: message));
+          if (!mounted) return true;
+          AppSnackBar.showError(
+            context,
+            'Tidak dapat membuka WhatsApp. Format pesanan telah disalin ke clipboard.',
+          );
+        }
+      } catch (_) {
+        if (mounted) {
+          await Clipboard.setData(ClipboardData(text: message));
+          if (!mounted) return true;
+          AppSnackBar.showError(
+            context,
+            'Gagal membuka WhatsApp. Format pesanan telah disalin ke clipboard.',
+          );
+        }
+      }
+      return true;
+    }
+  }
 
   void _handleOpenStoreDetail(ProductItem product, StoreSettingModel store) {
     final storeId = store.id > 0 ? store.id : product.storeId;
@@ -531,11 +756,11 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
       }
     });
 
-    final cartCount = ref.watch(cartItemCountProvider);
+    // final cartCount = ref.watch(cartItemCountProvider);
     final product = _product;
     final store =
-        _store ??
         product?.store ??
+        _store ??
         ref.watch(currentStoreSettingProvider) ??
         HomeDummyData.defaultStore;
 
@@ -547,8 +772,8 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
             bottom: false,
             child: Column(
               children: [
-                // 1. Screen Header: Back Button, "Details product" Title, & Cart Icon with Badge
-                _buildHeader(context, cartCount),
+                // 1. Screen Header: Back Button & "Details product" Title (Cart Icon dikomentari)
+                _buildHeader(context),
 
                 // 2. Scrollable Content Area
                 Expanded(
@@ -567,10 +792,11 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                       : RefreshIndicator(
                           color: AppColors.primary,
                           onRefresh: () async {
-                            await Future.wait([
-                              _fetchProductAndStore(silent: false),
-                              _fetchProductReviews(page: 1, reset: true),
-                            ]);
+                            await _fetchProductAndStore(silent: false);
+                            // await Future.wait([
+                            //   _fetchProductAndStore(silent: false),
+                            //   _fetchProductReviews(page: 1, reset: true),
+                            // ]);
                           },
                           child: _buildProductDetailBody(
                             context,
@@ -580,8 +806,9 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                         ),
                 ),
 
-                // 3. Fixed Bottom Action Bar: Try On (30%) & Add to Cart (70%)
-                if (product != null) _buildBottomActionBar(context, product),
+                // 3. Fixed Bottom Action Bar: Try On (30%) & Checkout via WA (70%)
+                if (product != null)
+                  _buildBottomActionBar(context, product, store),
               ],
             ),
           ),
@@ -592,7 +819,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
   }
 
   /// 1. Screen Header
-  Widget _buildHeader(BuildContext context, int cartCount) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -646,6 +873,10 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
             ),
           ),
 
+          // Spacer penyeimbang tombol back agar judul tetap berada di tengah
+          const SizedBox(width: 42),
+
+          /*
           // Shopping Cart Icon with Badge
           Stack(
             clipBehavior: Clip.none,
@@ -708,6 +939,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                 ),
             ],
           ),
+          */
         ],
       ),
     );
@@ -1042,7 +1274,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
 
                     const SizedBox(height: 8),
 
-                    // Number of People Who Purchased + Rating & Stock Status
+                    // Number of People Who Purchased & Stock Status (Bintang & Rating disembunyikan)
                     Wrap(
                       spacing: 10,
                       runSpacing: 4,
@@ -1057,6 +1289,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                             color: const Color(0xFF64748B),
                           ),
                         ),
+                        /*
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1076,6 +1309,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                             ),
                           ],
                         ),
+                        */
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -1237,7 +1471,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                                       ? store.description!.trim()
                                       : 'Official Store · Kampung Batik Laweyan'),
                             key: const Key('product_detail_store_identity'),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12,
@@ -1285,15 +1519,16 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
             ),
           ),
 
-          const SizedBox(height: 28),
+          // const SizedBox(height: 28),
 
           // 5. Customer Reviews Section (Breakdown 5..1 Bintang, Filter Bintang, & Infinite Scroll)
-          _buildReviewsSection(context, product),
+          // _buildReviewsSection(context, product),
         ],
       ),
     );
   }
 
+  /*
   /// Bagian Ulasan Pelanggan (Customer Reviews):
   /// - Ringkasan nilai rata-rata + rincian jumlah bintang 5, 4, 3, 2, 1
   /// - Filter per bintang (Semua, ★5, ★4, ★3, ★2, ★1)
@@ -1817,9 +2052,14 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
     final m = months[(dt.month - 1).clamp(0, 11)];
     return '${dt.day} $m ${dt.year}';
   }
+  */
 
-  /// 5. Bottom Action Bar: Tombol "Try On" (30%) dan "Add to Cart" (70%)
-  Widget _buildBottomActionBar(BuildContext context, ProductItem product) {
+  /// 5. Bottom Action Bar: Tombol "Try On" (30%) dan "Checkout by WA" (70%)
+  Widget _buildBottomActionBar(
+    BuildContext context,
+    ProductItem product,
+    StoreSettingModel store,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1888,6 +2128,7 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
           ),
           const SizedBox(width: 10),
 
+          /*
           // Tombol Add to Cart (70%)
           Expanded(
             flex: 7,
@@ -1926,6 +2167,49 @@ class _ProductDetailViewState extends ConsumerState<ProductDetailView> {
                           color: Colors.white,
                         ),
                       ),
+              ),
+            ),
+          ),
+          */
+
+          // Tombol Checkout by WhatsApp (70%)
+          Expanded(
+            flex: 7,
+            child: SizedBox(
+              height: 48,
+              child: ElevatedButton.icon(
+                key: const Key('product_detail_checkout_wa_button'),
+                onPressed: !product.isInStock
+                    ? null
+                    : () => _showWhatsAppCheckoutBottomSheet(
+                        context,
+                        product,
+                        store,
+                      ),
+                icon: const FaIcon(
+                  FontAwesomeIcons.whatsapp,
+                  size: 19,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  product.isInStock ? 'Checkout via WA' : 'Out of Stock',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  disabledBackgroundColor: const Color(0xFFCBD5E1),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               ),
             ),
           ),
@@ -2310,6 +2594,7 @@ class _ProductGalleryPreviewDialogState
   }
 }
 
+/*
 /// Bottom Modal Sheet untuk memilih Varian Produk (Size, Color/Warna, dll. dari DB)
 /// serta menentukan Kuantitas (Qty) saat tombol Add to Cart ditekan.
 class _AddToCartBottomSheet extends StatefulWidget {
@@ -2765,6 +3050,543 @@ class _AddToCartBottomSheetState extends State<_AddToCartBottomSheet> {
                           color: Colors.white,
                         ),
                       ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbFallback(ProductItem product) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            product.placeholderColor,
+            product.placeholderColor.withValues(alpha: 0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.checkroom_rounded,
+          size: 28,
+          color: Colors.white.withValues(alpha: 0.9),
+        ),
+      ),
+    );
+  }
+}
+*/
+
+/// Bottom Modal Sheet untuk memilih Varian Produk dan Kuantitas (Qty)
+/// sebelum meneruskan pesanan langsung ke WhatsApp toko terkait.
+class _WhatsAppCheckoutBottomSheet extends StatefulWidget {
+  final ProductItem product;
+  final StoreSettingModel store;
+  final Future<bool> Function(int quantity, String? variantInfo)
+  onConfirmCheckout;
+
+  const _WhatsAppCheckoutBottomSheet({
+    required this.product,
+    required this.store,
+    required this.onConfirmCheckout,
+  });
+
+  @override
+  State<_WhatsAppCheckoutBottomSheet> createState() =>
+      _WhatsAppCheckoutBottomSheetState();
+}
+
+class _WhatsAppCheckoutBottomSheetState
+    extends State<_WhatsAppCheckoutBottomSheet> {
+  late final Map<String, List<ProductVariantOption>> _groupedVariants;
+  late final Map<String, String> _selectedByType;
+  int _quantity = 1;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _groupedVariants = <String, List<ProductVariantOption>>{};
+    for (final v in widget.product.variants) {
+      final typeKey = v.type.trim().isNotEmpty ? v.type.trim() : 'Variant';
+      final list = _groupedVariants.putIfAbsent(typeKey, () => []);
+      if (!list.any((item) => item.value == v.value)) {
+        list.add(v);
+      }
+    }
+
+    _selectedByType = <String, String>{};
+    for (final entry in _groupedVariants.entries) {
+      if (entry.value.isNotEmpty) {
+        _selectedByType[entry.key] = entry.value.first.value;
+      }
+    }
+  }
+
+  String? _buildVariantInfoString() {
+    if (_selectedByType.isEmpty) return null;
+    if (_selectedByType.length == 1) {
+      final entry = _selectedByType.entries.first;
+      return '${entry.key}: ${entry.value}';
+    }
+    return _selectedByType.entries
+        .map((e) => '${e.key}: ${e.value}')
+        .join(', ');
+  }
+
+  void _decreaseQty() {
+    if (_isSubmitting || _quantity <= 1) return;
+    setState(() {
+      _quantity -= 1;
+    });
+  }
+
+  void _increaseQty() {
+    if (_isSubmitting) return;
+    if (_quantity >= widget.product.stock) {
+      AppSnackBar.showInfo(
+        context,
+        'Maksimal pembelian sesuai stok tersedia (${widget.product.stock} pcs).',
+      );
+      return;
+    }
+    setState(() {
+      _quantity += 1;
+    });
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+
+    for (final typeKey in _groupedVariants.keys) {
+      final selected = _selectedByType[typeKey];
+      if (selected == null || selected.trim().isEmpty) {
+        AppSnackBar.showError(
+          context,
+          'Silakan pilih varian $typeKey terlebih dahulu.',
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final success = await widget.onConfirmCheckout(
+        _quantity,
+        _buildVariantInfoString(),
+      );
+      if (success && mounted) {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
+    final store = widget.store;
+    final bool canDecrease = _quantity > 1 && !_isSubmitting;
+    final bool canIncrease =
+        product.isInStock && _quantity < product.stock && !_isSubmitting;
+    final String? thumbUrl = product.allImages.isNotEmpty
+        ? product.allImages.first
+        : product.imageUrl;
+    final String unitPriceText = '${product.formattedDiscountedPrice} / pcs';
+    final String totalPriceText = ProductItem.formatRupiah(
+      product.discountedPrice * _quantity,
+    );
+
+    return Container(
+      key: const Key('whatsapp_checkout_bottom_sheet'),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(26),
+          topRight: Radius.circular(26),
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            18,
+      ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 1. Ringkasan Produk (Thumbnail, Nama, Harga per unit, Stok, Toko)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 76,
+                    height: 76,
+                    child: (thumbUrl != null && thumbUrl.isNotEmpty)
+                        ? Image.network(
+                            thumbUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _buildThumbFallback(product),
+                          )
+                        : _buildThumbFallback(product),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            unitPriceText,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          if (product.hasDiscount)
+                            Text(
+                              product.formattedOriginalPrice,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF94A3B8),
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Toko: ${store.name} · Stok: ${product.stock} pcs',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  key: const Key('wa_checkout_sheet_close_button'),
+                  onPressed: () => Navigator.of(context).pop(),
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+
+            // 2. Pilihan Varian
+            if (_groupedVariants.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ..._groupedVariants.entries.map((entry) {
+                final String variantType = entry.key;
+                final List<ProductVariantOption> options = entry.value;
+                final String? selectedVal = _selectedByType[variantType];
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            variantType,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                          if (selectedVal != null) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '· $selectedVal',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: options.map((opt) {
+                          final bool isSelected = selectedVal == opt.value;
+                          return GestureDetector(
+                            key: Key(
+                              'wa_variant_option_${variantType}_${opt.value}',
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _selectedByType[variantType] = opt.value;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : const Color(0xFFE2E8F0),
+                                  width: 1.3,
+                                ),
+                              ),
+                              child: Text(
+                                opt.value,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : const Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(color: Color(0xFFF1F5F9), height: 1),
+            ],
+
+            const SizedBox(height: 16),
+
+            // 3. Pemilih Kuantitas (- 1 +)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quantity',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Maks. ${product.stock} pcs',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFE2E8F0),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: const Key('wa_qty_decrease'),
+                        onPressed: canDecrease ? _decreaseQty : null,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.remove_rounded,
+                          size: 19,
+                          color: canDecrease
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 32),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$_quantity',
+                          key: const Key('wa_qty_value'),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        key: const Key('wa_qty_increase'),
+                        onPressed: canIncrease ? _increaseQty : null,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.add_rounded,
+                          size: 19,
+                          color: canIncrease
+                              ? AppColors.primary
+                              : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Ringkasan Total Pesanan
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total ($_quantity pcs × ${product.formattedDiscountedPrice})',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                  Text(
+                    totalPriceText,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // 4. Tombol Konfirmasi "Checkout via WhatsApp"
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                key: const Key('product_detail_confirm_checkout_wa_button'),
+                onPressed: _isSubmitting ? null : _handleSubmit,
+                icon: _isSubmitting
+                    ? const SizedBox.shrink()
+                    : const FaIcon(
+                        FontAwesomeIcons.whatsapp,
+                        size: 19,
+                        color: Colors.white,
+                      ),
+                label: _isSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.3,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        'Checkout via WA · $totalPriceText',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  disabledBackgroundColor: const Color(0xFFCBD5E1),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               ),
             ),
           ],

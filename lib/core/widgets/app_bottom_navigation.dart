@@ -64,8 +64,8 @@ class AppBottomNavigation extends StatelessWidget {
       label: 'Wishlist',
     ),
     AppNavItem(
-      unselectedIcon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long_rounded,
+      unselectedIcon: Icons.auto_awesome_outlined,
+      selectedIcon: Icons.auto_awesome_rounded,
       label: 'History',
     ),
     AppNavItem(

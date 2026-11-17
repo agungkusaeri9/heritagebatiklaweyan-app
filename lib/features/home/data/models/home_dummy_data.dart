@@ -527,9 +527,9 @@ class ProductItem {
     }
 
     StoreSettingModel? parsedStore;
-    if (json['store'] is Map<String, dynamic>) {
+    if (json['store'] is Map) {
       parsedStore = StoreSettingModel.fromJson(
-        json['store'] as Map<String, dynamic>,
+        Map<String, dynamic>.from(json['store'] as Map),
       );
     }
 
@@ -554,7 +554,7 @@ class ProductItem {
       stock: (json['stock'] as num?)?.toInt() ?? 10,
       weight: (json['weight'] as num?)?.toInt() ?? 350,
       isVirtualTryOn: json['is_virtual_try_on'] == true,
-      storeId: parsedStore?.id ?? (json['store_id'] as num?)?.toInt() ?? 1,
+      storeId: (json['store_id'] as num?)?.toInt() ?? parsedStore?.id ?? 0,
       store: parsedStore,
     );
   }

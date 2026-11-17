@@ -10,6 +10,7 @@ import '../models/store_setting_model.dart';
 abstract class StoreRemoteDataSource {
   Future<bool> pingServer();
   Future<StoreSettingModel> getStoreSetting();
+  Future<StoreSettingModel> getStoreById(int id);
   Future<StoreSettingModel> getPrivacyPolicy();
   Future<List<PaymentMethodModel>> getPaymentMethods();
   Future<List<FaqModel>> getFaqs({String? category, String? search});
@@ -62,6 +63,27 @@ class StoreRemoteDataSourceImpl implements StoreRemoteDataSource {
       AppLogger.e('Gagal mengambil pengaturan toko', error: e, stackTrace: stack);
       if (e is ApiException) rethrow;
       throw ApiException(message: 'Gagal mengambil pengaturan toko: $e');
+    }
+  }
+
+  @override
+  Future<StoreSettingModel> getStoreById(int id) async {
+    try {
+      AppLogger.d('StoreRemoteDataSource: Mengambil detail toko dari ${ApiConstants.storeDetail(id)}');
+      final response = await dio.get(ApiConstants.storeDetail(id));
+
+      final responseData = response.data;
+      if (responseData is Map<String, dynamic> && responseData.containsKey('data')) {
+        final data = responseData['data'] as Map<String, dynamic>;
+        return StoreSettingModel.fromJson(data);
+      }
+      throw const ApiException(message: 'Format respon detail toko tidak sesuai');
+    } on DioException catch (dioErr) {
+      throw dioClient.handleDioError(dioErr);
+    } catch (e, stack) {
+      AppLogger.e('Gagal mengambil detail toko #$id', error: e, stackTrace: stack);
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Gagal mengambil detail toko: $e');
     }
   }
 

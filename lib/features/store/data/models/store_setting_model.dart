@@ -43,11 +43,18 @@ class StoreSettingModel {
     final trimmed = rawUrl.trim();
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       final uri = Uri.tryParse(trimmed);
-      if (uri != null && (uri.host == 'localhost' || uri.host == '127.0.0.1')) {
-        final serverUri = Uri.tryParse(ApiConstants.serverUrl);
-        if (serverUri != null) {
+      final serverUri = Uri.tryParse(ApiConstants.serverUrl);
+      if (uri != null && serverUri != null) {
+        if (uri.path.contains('/storage/') ||
+            uri.host == 'localhost' ||
+            uri.host == '127.0.0.1' ||
+            uri.host == '10.0.2.2') {
           return uri
-              .replace(host: serverUri.host, port: serverUri.port)
+              .replace(
+                scheme: serverUri.scheme,
+                host: serverUri.host,
+                port: serverUri.port,
+              )
               .toString();
         }
       }

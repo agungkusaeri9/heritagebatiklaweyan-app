@@ -194,7 +194,7 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
 
   @override
   Widget build(BuildContext context) {
-    final cartCount = ref.watch(cartItemCountProvider);
+    // final cartCount = ref.watch(cartItemCountProvider);
     final displayedProducts = _getFilteredProducts();
     final isAll = widget.category.id == 'all' || widget.category.slug.isEmpty;
 
@@ -240,6 +240,7 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
             },
           ),
 
+          /*
           // Cart Icon dengan badge kuantitas
           Stack(
             clipBehavior: Clip.none,
@@ -285,6 +286,7 @@ class _CategoryProductsViewState extends ConsumerState<CategoryProductsView> {
                 ),
             ],
           ),
+          */
           const SizedBox(width: 8),
         ],
       ),

@@ -37,7 +37,8 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
   @override
   void initState() {
     super.initState();
-    _store = widget.initialStore ?? ref.read(currentStoreSettingProvider);
+    _store = widget.initialStore ??
+        (widget.storeId <= 0 ? ref.read(currentStoreSettingProvider) : null);
     _loadStoreAndProducts();
   }
 
@@ -53,11 +54,21 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
       final storeDataSource = ref.read(storeRemoteDataSourceProvider);
       final homeRepository = ref.read(homeRepositoryProvider);
 
+      final Future<StoreSettingModel> storeFuture = widget.storeId > 0
+          ? storeDataSource.getStoreById(widget.storeId).catchError(
+                (_) => _store ?? HomeDummyData.defaultStore,
+              )
+          : storeDataSource.getStoreSetting().catchError(
+                (_) => _store ?? HomeDummyData.defaultStore,
+              );
+
       final results = await Future.wait([
-        storeDataSource.getStoreSetting().catchError(
-              (_) => _store ?? HomeDummyData.defaultStore,
-            ),
-        homeRepository.getOtherProducts(page: 1, perPage: 20),
+        storeFuture,
+        homeRepository.getOtherProducts(
+          page: 1,
+          perPage: 20,
+          storeId: widget.storeId > 0 ? widget.storeId : null,
+        ),
       ]);
 
       if (!mounted) return;
@@ -105,7 +116,7 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    final cartCount = ref.watch(cartItemCountProvider);
+    // final cartCount = ref.watch(cartItemCountProvider);
     final store = _store ?? HomeDummyData.defaultStore;
 
     return Scaffold(
@@ -114,7 +125,7 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
         bottom: false,
         child: Column(
           children: [
-            _buildHeader(context, cartCount),
+            _buildHeader(context),
             Expanded(
               child: _isLoading && _store == null
                   ? const Center(
@@ -148,7 +159,7 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, int cartCount) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -195,6 +206,10 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
               letterSpacing: -0.2,
             ),
           ),
+          // Spacer penyeimbang tombol back agar judul tetap di tengah
+          const SizedBox(width: 42),
+
+          /*
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -255,6 +270,7 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
                 ),
             ],
           ),
+          */
         ],
       ),
     );

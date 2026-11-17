@@ -44,6 +44,7 @@ abstract class HomeRemoteDataSource {
     int page = 1,
     int perPage = 10,
     String? categorySlug,
+    int? storeId,
   });
   Future<ProductItem> getProductDetail(dynamic idOrSlug);
   Future<PaginatedProductReviewsResult> getProductReviews(
@@ -189,6 +190,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     int page = 1,
     int perPage = 10,
     String? categorySlug,
+    int? storeId,
   }) async {
     try {
       final queryParams = <String, dynamic>{
@@ -197,6 +199,9 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       };
       if (categorySlug != null && categorySlug.isNotEmpty && categorySlug != 'all') {
         queryParams['category'] = categorySlug;
+      }
+      if (storeId != null && storeId > 0) {
+        queryParams['store_id'] = storeId;
       }
 
       AppLogger.d('Mengambil daftar produk lainnya: $queryParams');

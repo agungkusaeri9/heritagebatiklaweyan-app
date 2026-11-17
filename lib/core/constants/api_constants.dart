@@ -69,6 +69,8 @@ class ApiConstants {
   static const String ping = '/ping';
   static const String settings = '/settings';
   static const String privacyPolicy = '/settings/privacy-policy';
+  static const String stores = '/stores';
+  static String storeDetail(int id) => '/stores/$id';
   static const String paymentMethods = '/payment-methods';
   static const String faqs = '/faqs';
   static const String categories = '/categories';

@@ -181,7 +181,7 @@ class _HomeSkeletonLoadingState extends State<HomeSkeletonLoading>
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 275,
+              height: 255,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,

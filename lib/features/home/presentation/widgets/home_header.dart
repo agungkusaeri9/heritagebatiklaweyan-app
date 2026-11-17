@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../cart/presentation/viewmodels/cart_providers.dart';
+// import '../../../cart/presentation/viewmodels/cart_providers.dart';
 import '../../../location/presentation/viewmodels/location_providers.dart';
 import '../../../notification/presentation/viewmodels/notification_providers.dart';
 
@@ -42,8 +42,8 @@ class HomeHeader extends ConsumerWidget {
         : 'Kampung Batik Laweyan, Solo';
     final liveUnreadCount = ref.watch(unreadNotificationCountProvider);
     final effectiveNotificationCount = notificationCount ?? liveUnreadCount;
-    final liveCartCount = ref.watch(cartItemCountProvider);
-    final effectiveCartCount = cartCount ?? liveCartCount;
+    // final liveCartCount = ref.watch(cartItemCountProvider);
+    // final effectiveCartCount = cartCount ?? liveCartCount;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -116,6 +116,7 @@ class HomeHeader extends ConsumerWidget {
 
           const SizedBox(width: 12),
 
+          /*
           // 2. Ikon Cart dengan Badge
           _buildActionIconButton(
             icon: Icons.shopping_bag_outlined,
@@ -125,6 +126,7 @@ class HomeHeader extends ConsumerWidget {
           ),
 
           const SizedBox(width: 4),
+          */
 
           // 3. Ikon Notifikasi dengan Badge
           _buildActionIconButton(

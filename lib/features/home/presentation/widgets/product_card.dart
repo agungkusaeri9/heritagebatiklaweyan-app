@@ -255,37 +255,6 @@ class _ProductCardState extends ConsumerState<ProductCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Rating & Terjual
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 15,
-                        color: Color(0xFFF59E0B),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${widget.product.rating}',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1E293B),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '| ${widget.product.soldCount} terjual',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 5),
-
                   // Nama Produk (Maks 2 Baris)
                   SizedBox(
                     height: 36,
@@ -337,6 +306,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
                       ),
 
                       // Tombol Tambah Keranjang Mini
+                      /*
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.onAddToCart,
@@ -361,6 +331,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
                           ),
                         ),
                       ),
+                      */
                     ],
                   ),
                 ],

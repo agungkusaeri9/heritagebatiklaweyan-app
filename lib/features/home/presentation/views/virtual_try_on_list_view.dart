@@ -11,7 +11,16 @@ import '../viewmodels/home_providers.dart';
 
 /// Halaman Riwayat & Koleksi Virtual Try-On Pengguna
 class VirtualTryOnListView extends ConsumerStatefulWidget {
-  const VirtualTryOnListView({super.key});
+  final VoidCallback? onBackTap;
+  final bool embedded;
+  final int refreshTrigger;
+
+  const VirtualTryOnListView({
+    super.key,
+    this.onBackTap,
+    this.embedded = false,
+    this.refreshTrigger = 0,
+  });
 
   @override
   ConsumerState<VirtualTryOnListView> createState() =>
@@ -28,6 +37,14 @@ class _VirtualTryOnListViewState extends ConsumerState<VirtualTryOnListView> {
   void initState() {
     super.initState();
     _loadTryOns();
+  }
+
+  @override
+  void didUpdateWidget(covariant VirtualTryOnListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshTrigger != oldWidget.refreshTrigger) {
+      _loadTryOns();
+    }
   }
 
   Future<void> _loadTryOns() async {
@@ -109,31 +126,38 @@ class _VirtualTryOnListViewState extends ConsumerState<VirtualTryOnListView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            ProfileHeader(
-              title: 'Virtual Try-On Batik',
-              onBackTap: () {
+    final content = Column(
+      children: [
+        ProfileHeader(
+          title: 'Virtual Try-On Batik',
+          onBackTap: widget.onBackTap ??
+              () {
                 if (context.canPop()) {
                   context.pop();
                 } else {
                   context.go('/home');
                 }
               },
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadTryOns,
-                color: AppColors.primary,
-                child: _buildBody(),
-              ),
-            ),
-          ],
         ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadTryOns,
+            color: AppColors.primary,
+            child: _buildBody(),
+          ),
+        ),
+      ],
+    );
+
+    if (widget.embedded) {
+      return ColoredBox(color: const Color(0xFFF8FAFC), child: content);
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        bottom: false,
+        child: content,
       ),
     );
   }
@@ -242,7 +266,7 @@ class _VirtualTryOnListViewState extends ConsumerState<VirtualTryOnListView> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
-                  onPressed: () => context.go('/home'),
+                  onPressed: widget.onBackTap ?? () => context.go('/home'),
                   icon: const Icon(Icons.shopping_bag_outlined, size: 18),
                   label: const Text('Jelajahi Produk Batik'),
                   style: ElevatedButton.styleFrom(

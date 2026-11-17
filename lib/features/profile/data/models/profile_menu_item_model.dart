@@ -30,6 +30,7 @@ class ProfileMenuItemModel {
       icon: Icons.person_outline_rounded,
       route: '/your-profile',
     ),
+    /*
     ProfileMenuItemModel(
       id: 'payment_methods',
       title: 'Payment Methods',
@@ -42,6 +43,7 @@ class ProfileMenuItemModel {
       icon: Icons.shopping_bag_outlined,
       route: '/orders',
     ),
+    */
     ProfileMenuItemModel(
       id: 'virtual_try_on',
       title: 'Virtual Try-On Batik',
@@ -66,12 +68,14 @@ class ProfileMenuItemModel {
       icon: Icons.lock_outline_rounded,
       route: '/privacy-policy',
     ),
+    /*
     ProfileMenuItemModel(
       id: 'invites_friends',
       title: 'Invites Friends',
       icon: Icons.person_add_alt_1_outlined,
       badgeText: 'Soon',
     ),
+    */
     ProfileMenuItemModel(
       id: 'log_out',
       title: 'Log out',

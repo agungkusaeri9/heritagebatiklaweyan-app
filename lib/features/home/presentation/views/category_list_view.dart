@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../cart/presentation/viewmodels/cart_providers.dart';
+// import '../../../cart/presentation/viewmodels/cart_providers.dart';
 import '../../data/models/home_dummy_data.dart';
 import '../viewmodels/home_providers.dart';
 
@@ -52,7 +52,7 @@ class _CategoryListViewState extends ConsumerState<CategoryListView> {
       return matchName || matchDesc;
     }).toList();
 
-    final cartCount = ref.watch(cartItemCountProvider);
+    // final cartCount = ref.watch(cartItemCountProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -77,7 +77,8 @@ class _CategoryListViewState extends ConsumerState<CategoryListView> {
           ),
         ),
         centerTitle: true,
-        actions: [
+        actions: const [
+          /*
           // Ikon Cart dengan badge kuantitas live
           Stack(
             clipBehavior: Clip.none,
@@ -118,6 +119,7 @@ class _CategoryListViewState extends ConsumerState<CategoryListView> {
             ],
           ),
           const SizedBox(width: 8),
+          */
         ],
       ),
       body: SafeArea(

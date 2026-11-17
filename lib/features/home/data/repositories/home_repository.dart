@@ -14,6 +14,7 @@ abstract class HomeRepository {
     int page = 1,
     int perPage = 10,
     String? categorySlug,
+    int? storeId,
   });
   Future<ProductItem> getProductDetail(dynamic idOrSlug);
   Future<PaginatedProductReviewsResult> getProductReviews(
@@ -193,12 +194,14 @@ class HomeRepositoryImpl implements HomeRepository {
     int page = 1,
     int perPage = 10,
     String? categorySlug,
+    int? storeId,
   }) async {
     try {
       return await remoteDataSource.getOtherProducts(
         page: page,
         perPage: perPage,
         categorySlug: categorySlug,
+        storeId: storeId,
       );
     } catch (e, stack) {
       AppLogger.e('Gagal mengambil paginated produk dari API: $e', error: e, stackTrace: stack);
